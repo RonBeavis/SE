@@ -3,11 +3,9 @@
 # Licensed under Apache License, Version 2.0, January 2004
 #
 
-import json
 import re
 import time
 import sys
-import gzip
 from load_spectra import load_spectra
 from load_kernel import read_kernel
 
