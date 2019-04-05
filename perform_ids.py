@@ -6,7 +6,7 @@
 def perform_ids(_s,_k,_list,_param):
 	ids = {}
 	a = 0
-	res = _param['res']
+	res = _param['fragment mass tolerance']
 	for s in _s:
 		ks = _list[a]
 		best_score = 5

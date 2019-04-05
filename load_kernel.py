@@ -19,7 +19,7 @@ def read_kernel(_f,_s,_param):
 	qs = []
 	spectrum_list = {}
 	a = 0
-	res = _param['pres']
+	res = _param['parent mass tolerance']
 	for s in _s:
 		pms.append(s['pm'])
 		spectrum_list[a] = []

@@ -9,13 +9,13 @@ def load_params(_argv,_d):
 	for v in _argv:
 		u = v[2:]
 		if v.find('-k') == 0:
-			params['kernel'] = u
+			params['kernel file'] = u
 		if v.find('-s') == 0:
-			params['spectra'] = u
+			params['spectra file'] = u
 		if v.find('-p') == 0:
-			params['pres'] = int(u)
+			params['parent mass tolerance'] = int(u)
 		if v.find('-f') == 0:
-			params['res'] = int(u)
+			params['fragment mass tolerance'] = int(u)
 		if v.find('-h') != -1:
 			print('''
 	>python3 se.py -kKERNeL -sSPECTRA (-p20) (-f400)
