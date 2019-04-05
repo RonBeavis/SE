@@ -14,11 +14,11 @@ def simple_display(ids,spectra,kernel,job_stats,params):
 				print('     %i: %s, %i %s %i' % (j+1,t['lb'],t['beg'],t['seq'],t['end']))
 	print('\n2. Input parameters:')
 	for j in params:
-		print('%s : %s' % (j,str(params[j])))
+		print('     %s: %s' % (j,str(params[j])))
 	print('\n3. Job statistics:')
 	for j in job_stats:
 		if j.find('time') == -1:
-			print('%s : %s' % (j,str(job_stats[j])))
+			print('     %s: %s' % (j,str(job_stats[j])))
 		else:
-			print('%s : %.3f s' % (j,job_stats[j]))
+			print('     %s: %.3f s' % (j,job_stats[j]))
 

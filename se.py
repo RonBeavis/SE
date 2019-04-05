@@ -5,6 +5,7 @@
 
 import time
 import sys
+import datetime
 from load_spectra import load_spectra
 from load_kernel import read_kernel
 from load_params import load_params
@@ -13,6 +14,7 @@ from display_ids import simple_display
 
 start = time.time()
 job_stats = {}
+job_stats['Date'] = str(datetime.datetime.now())
 params = {'fragment mass tolerance': 400,'parent mass tolerance': 20}
 (params,ret) = load_params(sys.argv,params)
 if not ret:
@@ -25,10 +27,10 @@ job_stats['S-dimension'] = len(spectra)
 job_stats['K-dimension'] = k
 job_stats['KS-intersection'] = len(kernel)
 
-job_stats['load time'] = time.time()-start
+job_stats['Load time'] = time.time()-start
 start = time.time()
 ids = perform_ids(spectra,kernel,spectrum_list,params)
-job_stats['search time'] = time.time()-start
+job_stats['Search time'] = time.time()-start
 
 simple_display(ids,spectra,kernel,job_stats,params)
 
