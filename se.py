@@ -48,9 +48,13 @@ def score_id(_s,_k,res):
 				s += 1
 	return score
 
+start = time.time()
+
 params = {'res': 400,'pres': 20}
 
-start = time.time()
+if len(sys.argv) != 3 or sys.argv[1] == '-h':
+	print('>python3 se KERNEL SPECTRA')
+	exit()
 
 lib = sys.argv[1]
 sfile = sys.argv[2]
@@ -60,7 +64,7 @@ print('S-dimension = %i' % (len(spectra)))
 
 (kernel,spectrum_list,k) = read_kernel(lib,spectra,params)
 print('K-dimension = %i' % (k))
-print('KS-dimension = %i' % len(kernel))
+print('KS-intersection = %i' % len(kernel))
 
 ids = perform_ids(spectra,kernel,spectrum_list,params)
 print(ids)
