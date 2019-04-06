@@ -15,7 +15,10 @@ from display_ids import simple_display
 start = time.time()
 job_stats = {}
 job_stats['Date'] = str(datetime.datetime.now())
-params = {'fragment mass tolerance': 400,'parent mass tolerance': 20}
+params = {'fragment mass tolerance': 400,
+	'parent mass tolerance': 20,
+	'p mods':{'C':[57021]},
+	'v mods':{'M':[15995]}}
 (params,ret) = load_params(sys.argv,params)
 if not ret:
 	exit()
@@ -29,9 +32,9 @@ job_stats['KS-intersection'] = len(kernel)
 
 job_stats['Load time'] = time.time()-start
 start = time.time()
-ids = perform_ids(spectra,kernel,spectrum_list,params)
+(ids,scores) = perform_ids(spectra,kernel,spectrum_list,params)
 job_stats['Search time'] = time.time()-start
 
-simple_display(ids,spectra,kernel,job_stats,params)
+simple_display(ids,scores,spectra,kernel,job_stats,params)
 
 

@@ -5,6 +5,7 @@
 
 def perform_ids(_s,_k,_list,_param):
 	ids = {}
+	scores = {}
 	a = 0
 	res = _param['fragment mass tolerance']
 	for s in _s:
@@ -21,8 +22,9 @@ def perform_ids(_s,_k,_list,_param):
 			elif score == best_score:
 				ident.append(k)
 		ids[a] = ident
+		scores[a] = best_score
 		a += 1
-	return ids
+	return (ids,scores)
 
 def score_id(_s,_k,res):
 	score = 0
