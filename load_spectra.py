@@ -33,10 +33,10 @@ def load_jsms(_in):
 			vs = []
 			for m in ms:
 				vs.append(int(round(1000*(m-protein),0)))
-			vs.sort()
 			o['ms'] = vs
 			sp.append(o)
 	f.close()
+	sp = clean_up(sp)
 	return sp
 
 def load_mgf(_in):
@@ -46,8 +46,9 @@ def load_mgf(_in):
 		ifile = open(_in,'r')
 	s = 0
 	js = {}
-	spectra = []
+	sp = []
 	Ms = []
+	Is = []
 	amIn = 0
 	proton = 1.007276
 	for line in ifile:
@@ -55,6 +56,7 @@ def load_mgf(_in):
 		if line.find('BEGIN IONS') == 0:
 			js = {}
 			Ms = []
+			Is = []
 			amIn = 1
 		elif amIn == 0:
 			continue
@@ -62,10 +64,9 @@ def load_mgf(_in):
 			js['np'] = len(Ms)
 			js['pm'] = 1000.0*((js['pm']-proton)*js['pz'])
 			js['pm'] = int(round(js['pm'],0))
-			if len(Ms) > 0:
-				Ms.sort()
-				js['ms'] = Ms
-			spectra.append(js)
+			js['ms'] = Ms
+			js['is'] = Is
+			sp.append(js)
 			amIn = 0
 			s += 1
 		elif line.find('PEPMASS') == 0:
@@ -107,5 +108,23 @@ def load_mgf(_in):
 			if i <= 0:
 				continue						
 			Ms.append(m)
-	return spectra
+			Is.append(i)
+	sp = clean_up(sp)
+	return sp
+
+def clean_up(_sp,l = 50):
+	sp = _sp
+	a = 0
+	for s in sp:
+		sMs = [x for _,x in sorted(zip(s['is'],s['ms']),reverse = True)]
+		sIs = s['is']
+		sIs.sort(reverse = True)
+		sMs = sMs[:l]
+		sIs = sIs[:l]
+		sIs = [x for _,x in sorted(zip(sMs,sIs))]
+		sMs.sort()
+		sp[a]['ms'] = sMs
+		sp[a]['is'] = sIs
+		a += 1
+	return sp
 

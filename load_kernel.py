@@ -113,6 +113,7 @@ def read_kernel(_f,_s,_param):
 			a += 1
 		if ok:
 			js = json.loads(l)
+			js['mods'] = []
 			if len(p_pos) > 0:
 				js = update_ions(js,pmods,p_pos)
 			if len(b_mods):
@@ -130,12 +131,15 @@ def read_kernel(_f,_s,_param):
 def update_ions(_js,_mods,_pos):
 	js = _js
 	t = len(js['bs'])
+	mods = {}
 	for m in _mods:
 		a = 0
 		delta = int(0)
 		pmod = _mods[m][0]
 		while a < t:
 			if a in _pos[m]:
+				mods[str(js['beg']+a)] = pmod
+				js['mods'].append(mods)
 				delta += pmod
 			js['bs'][a] += delta
 			a += 1
@@ -151,7 +155,10 @@ def update_ions(_js,_mods,_pos):
 def update_bions(_js,_bmods):
 	js = _js
 	t = len(js['bs'])
+	mods = {}
 	for b in _bmods:
+		mods[str(js['beg'])] = b
+		js['mods'].append(mods)
 		a = 0
 		while a < t:
 			js['bs'][a] += b
@@ -161,7 +168,10 @@ def update_bions(_js,_bmods):
 def update_yions(_js,_ymods):
 	js = _js
 	t = len(js['ys'])
+	mods = {}
 	for b in _ymods:
+		mods[str(js['end'])] = b
+		js['mods'].append(mods)
 		a = 0
 		while a < t:
 			js['ys'][a] += b
