@@ -6,6 +6,7 @@
 import gzip
 import json
 import re
+import sys
 
 def load_spectra(_in):
 	if _in.find('.mgf') == len(_in)-4:
@@ -26,15 +27,18 @@ def load_jsms(_in):
 		f = open(_in,'r',encoding = 'utf8')
 	proton = 1.007276
 	for l in f:
-		o = json.loads(l)
-		if 'lv' in o and 'pz' in o:
-			o['pm'] = int(round(1000*(o['pm'] - proton)*o['pz'],0))
-			ms = o['ms']
+		js = json.loads(l)
+		if 'lv' in js and 'pz' in js:
+			js['pm'] = int(round(1000*(js['pm']*js['pz']-proton*js['pz']),0))
+			ms = js['ms']
 			vs = []
 			for m in ms:
 				vs.append(int(round(1000*(m-protein),0)))
-			o['ms'] = vs
-			sp.append(o)
+			js['ms'] = vs
+			sp.append(js)
+			if len(sp) % 1000 == 0:
+				print('.',end='')
+				sys.stdout.flush()
 	f.close()
 	sp = clean_up(sp)
 	return sp
@@ -62,17 +66,19 @@ def load_mgf(_in):
 			continue
 		elif line.find('END IONS') == 0:
 			js['np'] = len(Ms)
-			js['pm'] = 1000.0*((js['pm']-proton)*js['pz'])
-			js['pm'] = int(round(js['pm'],0))
+			js['pm'] = int(round(1000*(js['pm']*js['pz']-proton*js['pz']),0))
 			js['ms'] = Ms
 			js['is'] = Is
 			sp.append(js)
+			if len(sp) % 1000 == 0:
+				print('.',end='')
+				sys.stdout.flush()
 			amIn = 0
 			s += 1
 		elif line.find('PEPMASS') == 0:
 			line = re.sub('^PEPMASS\=','',line)
 			vs = line.split(' ')
-			js['pm'] = float('%.4f' % float(vs[0]))
+			js['pm'] = float(vs[0])
 			if len(vs) > 1:
 				js['pi'] = float(vs[1])
 		elif line.find('RTINSECONDS') == 0:
@@ -115,12 +121,18 @@ def load_mgf(_in):
 def clean_up(_sp,l = 50):
 	sp = _sp
 	a = 0
+	deleted = 0
 	for s in sp:
 		sMs = [x for _,x in sorted(zip(s['is'],s['ms']),reverse = True)]
 		sIs = s['is']
 		sIs.sort(reverse = True)
 		sMs = sMs[:l]
 		sIs = sIs[:l]
+		minI = sIs[0]/100
+		while sIs[-1] < minI:
+			sMs.delete(-1)
+			sIs.delete(-1)
+			deleted += 1
 		sIs = [x for _,x in sorted(zip(sMs,sIs))]
 		sMs.sort()
 		sp[a]['ms'] = sMs
