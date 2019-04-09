@@ -18,7 +18,7 @@ from perform_ids import perform_ids
 from display_ids import simple_display,tsv_file
 
 def main():
-	print('start ...\n')
+	print('started ...\n')
 	start = time.time()
 	job_stats = {}
 	job_stats['Start'] = str(datetime.datetime.now())
@@ -28,6 +28,7 @@ def main():
 	print('Loading parameters')
 	(params,ret) = load_params(sys.argv)
 	if not ret:
+		print('\n... exited')
 		exit()
 #
 #	load spectra from files, using command line specified list
