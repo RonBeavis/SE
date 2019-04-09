@@ -1,12 +1,20 @@
 #
 # Copyright © 2019 Ronald C. Beavis
 # Licensed under Apache License, Version 2.0, January 2004
+
+#
+# loads an array with spectra obtained from named data files
 #
 
 import gzip
 import json
 import re
 import sys
+
+#
+# method matches file name with parser and loads array
+# only externally called method
+#
 
 def load_spectra(_in):
 	if _in.find('.mgf') == len(_in)-4:
@@ -18,6 +26,10 @@ def load_spectra(_in):
 	elif _in.find('.jsms.gz') == len(_in)-8:
 		return load_jsms(_in)
 	return load_mgf(_in)
+
+#
+# JSMS parser
+#
 
 def load_jsms(_in):
 	sp = []
@@ -42,7 +54,9 @@ def load_jsms(_in):
 	f.close()
 	sp = clean_up(sp)
 	return sp
-
+#
+# MGF parser
+#
 def load_mgf(_in):
 	if _in.find('.gz') == len(_in) - 3:
 		ifile = gzip.open(_in,'rt')
@@ -55,13 +69,17 @@ def load_mgf(_in):
 	Is = []
 	amIn = 0
 	proton = 1.007276
+	found = set([])
+	print('.',end='')
+	sys.stdout.flush()
 	for line in ifile:
 		line = line.rstrip()
-		if line.find('BEGIN IONS') == 0:
+		if 'BEGIN IONS' not in found and line.find('BEGIN IONS') == 0:
 			js = {}
 			Ms = []
 			Is = []
 			amIn = 1
+			found.add('BEGIN IONS')
 		elif amIn == 0:
 			continue
 		elif line.find('END IONS') == 0:
@@ -70,21 +88,24 @@ def load_mgf(_in):
 			js['ms'] = Ms
 			js['is'] = Is
 			sp.append(js)
-			if len(sp) % 1000 == 0:
+			if len(sp) % 10000 == 0:
 				print('.',end='')
 				sys.stdout.flush()
 			amIn = 0
+			found = set([])
 			s += 1
-		elif line.find('PEPMASS') == 0:
+		elif 'PEPMASS' not in found and line.find('PEPMASS') == 0:
 			line = re.sub('^PEPMASS\=','',line)
 			vs = line.split(' ')
 			js['pm'] = float(vs[0])
 			if len(vs) > 1:
 				js['pi'] = float(vs[1])
-		elif line.find('RTINSECONDS') == 0:
+			found.add('PEPMASS')
+		elif 'RTINSECONDS' not in found and line.find('RTINSECONDS') == 0:
 			line = re.sub('^RTINSECONDS\=','',line)
 			js['rt'] = float('%.3f' % float(line))
-		elif line.find('CHARGE=') == 0:
+			found.add('RTINSECONDS')
+		elif 'CHARGE=' not in found and line.find('CHARGE=') == 0:
 			line = re.sub('^CHARGE\=','',line)
 			if line.find('+'):
 				line = line.replace('+','')
@@ -92,7 +113,8 @@ def load_mgf(_in):
 			else:
 				line = line.replace('-','')
 				js['pz'] = -1*int(line)
-		elif line.find('TITLE=') == 0:
+			found.add('CHARGE=')
+		elif 'TITLE=' not in found and line.find('TITLE=') == 0:
 			line = re.sub('^TITLE=','',line)
 			line = re.sub('\"','\'',line)
 			js['ti'] = line
@@ -100,6 +122,7 @@ def load_mgf(_in):
 				js['sc'] = int(re.sub('.+scan\=','',line))
 			else:
 				js['sc'] = s+1
+			found.add('TITLE=')
 		else:
 			vs = line.split(' ')
 			if len(vs) < 2 or len(vs) > 3:
@@ -117,7 +140,9 @@ def load_mgf(_in):
 			Is.append(i)
 	sp = clean_up(sp)
 	return sp
-
+#
+# cleans up spectra to conform to search engine requirements
+#
 def clean_up(_sp,l = 50):
 	sp = _sp
 	a = 0
