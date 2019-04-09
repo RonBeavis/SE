@@ -10,6 +10,12 @@ import gzip
 import json
 import re
 import sys
+import struct
+import base64
+import hashlib
+import gzip
+import zlib
+import xml.sax
 
 #
 # method matches file name with parser and loads array
@@ -25,6 +31,10 @@ def load_spectra(_in):
 		return load_jsms(_in)
 	elif _in.find('.jsms.gz') == len(_in)-8:
 		return load_jsms(_in)
+	elif _in.find('.mzml') == len(_in)-5:
+		return load_mzml(_in)
+	elif _in.find('.mzml.gz') == len(_in)-8:
+		return load_mzml(_in)
 	return load_mgf(_in)
 
 #
@@ -141,8 +151,183 @@ def load_mgf(_in):
 	sp = clean_up(sp)
 	return sp
 #
+#	mzML parser
+#
+
+#
+#	mzMLHandler necessary to XML SAX handler
+#
+class mzMLHandler(xml.sax.ContentHandler):
+	def __init__(self):
+		self.cTag = ''
+		self.isSpectrum = False
+		self.isSelectedIon = False
+		self.isMzArray = False
+		self.isIntArray = False
+		self.isBinaryDataArray = False
+		self.isBinary = False
+		self.isZlib = False
+		self.isScan = False
+		self.jsms = {}
+		self.floatBytes = 8
+		self.content = ''
+		self.mhash = None
+		self.spectra = []
+		self.n = 0
+		self.proton = 1.007276
+	
+	def getSpectra(self):
+		return self.spectra	
+	def startElement(self, tag, attrs):
+		self.cTag = tag
+		if tag == 'spectrum':
+			self.isSpectrum = True
+			if 'scan' in attrs:
+				self.jsms['sc'] = int(attrs['scan'])
+			elif 'index' in attrs:
+				self.jsms['sc'] = int(attrs['index'])
+		if tag == 'precursor' and 'spectrumRef' in attrs:
+			self.jsms['ti'] = attrs['spectrumRef']
+			if self.jsms['ti'].find('scan=') != -1:
+				grp = re.match(r'.+scan=(\d+)',self.jsms['ti'])
+				self.jsms['sc'] = int(grp.group(1))
+		if tag == 'scan':
+			self.isScan = True
+		if self.isScan and tag == 'cvParam':
+			if attrs['name'] == 'filter string' and 'ti' not in self.jsms:
+				self.jsms['ti'] = attrs['value']
+			if attrs['name'] == 'scan start time':
+				self.jsms['rt'] = float('%.3f' % (60.0*float(attrs['value'])))
+		if self.isSpectrum and tag == 'cvParam':
+			if attrs['name'] == 'ms level':
+				self.jsms['lv'] = int(attrs['value'])
+		if tag == 'selectedIon':
+			self.isSelectedIon = True
+		if self.isSelectedIon and tag == 'cvParam':
+			if attrs['name'] == 'selected ion m/z':
+				self.jsms['pm'] = float('%.4f' % float(attrs['value']))
+			if attrs['name'] == 'charge state':
+				self.jsms['pz'] = int(attrs['value'])
+			if attrs['name'] == 'peak intensity':
+				self.jsms['pi'] = float(attrs['value'])
+		if tag == 'binaryDataArray':
+			self.isBinaryDataArray = True
+		if self.isBinaryDataArray and tag == 'cvParam':
+			if attrs['name'] == 'm/z array':
+				self.isMzArray = True
+			if attrs['name'] == 'intensity array':
+				self.isIntArray = True
+			if attrs['name'] == '32-bit float':
+				self.floatBytes = 4
+			if attrs['name'] == '64-bit float':
+				self.floatBytes = 8
+			if attrs['name'] == 'zlib compression':
+				self.isZlib = True
+		if (self.isMzArray or self.isIntArray) and tag == 'binary':
+			self.isBinary = True
+	def characters(self, content):
+		if self.isMzArray or self.isIntArray:
+			self.content += content
+
+	def endElement(self, tag):
+		if tag == 'spectrum':
+			self.isSpectrum = False
+			if len(self.jsms) > 0 and self.jsms['lv'] >= 2:
+				a = 0
+				Ms = []
+				Is = []
+				Zs = []
+				while a < self.jsms['np']:
+					if self.jsms['is'][a] <= 0.0:
+						a += 1
+						continue
+					m = int(round(1000.0*(float(self.jsms['ms'][a])-self.proton),0))
+					Ms.append(m)
+					Is.append(self.jsms['is'][a])
+					if 'zs' in self.jsms:
+						Zs.append(self.jsms['zs'][a])
+					a += 1
+				self.jsms['ms'] = Ms
+				self.jsms['is'] = Is
+				self.jsms['pm'] = int(round(1000*(self.js['pm']*self.js['pz']-proton*self.js['pz']),0))
+				if 'zs' in self.jsms:
+					self.jsms['zs'] = Zs
+				self.jsms['np'] = len(Ms)
+				self.spectra.append(self.jsms)
+				self.n += 1
+				if self.n % 10000 == 0:
+					print('.',end='',flush=True)
+				
+			self.jsms = {}
+		if tag == 'scan':
+			self.isScan = False
+		if tag == 'selectedIon':
+			self.isSelectedIon = False
+		if tag == 'binaryDataArray':
+			self.isBinaryDataArray = False
+		if tag == 'binary':
+			self.isBinary = False
+			if self.isMzArray:
+				str = self.content.strip()
+				if self.isZlib:
+					d = base64.standard_b64decode(str.encode())
+					data = zlib.decompress(d)
+					count = len(data)/int(self.floatBytes)
+					if self.floatBytes == 4:
+						result = struct.unpack('<%if' % (count),data)
+					else:
+						result = struct.unpack('<%id' % (count),data)
+				else:
+					data = base64.standard_b64decode(str.encode())
+					count = len(data)/int(self.floatBytes)
+					if self.floatBytes == 4:
+						result = struct.unpack('<%if' % (count),data)
+					else:
+						result = struct.unpack('<%id' % (count),data)
+					
+				self.jsms['ms'] = result
+				self.jsms['np'] = len(result)
+				self.isMzArray = False
+				self.isZlib = False
+				self.content = ''
+			if self.isIntArray:
+				str = self.content.strip()
+				if self.isZlib:
+					d = base64.standard_b64decode(str.encode())
+					data = zlib.decompress(d)
+					count = len(data)/int(self.floatBytes)
+					if self.floatBytes == 4:
+						result = struct.unpack('<%if' % (count),data)
+					else:
+						result = struct.unpack('<%id' % (count),data)
+				else:
+					data = base64.standard_b64decode(str.encode())
+					count = len(data)/int(self.floatBytes)
+					if self.floatBytes == 4:
+						result = struct.unpack('<%if' % (count),data)
+					else:
+						result = struct.unpack('<%id' % (count),data)
+				self.jsms['is'] = result
+				self.isIntArray = False
+				self.content = ''
+
+#
+# Creates the xml.sax parser using the mzMLHandler class
+# and parses the mzML file
+#
+
+def load_mzml(_in):
+	fpath = _in
+	parser = xml.sax.make_parser()
+	parser.setContentHandler(mzMLHandler())
+	parser.parse(open(fpath,"r"))
+	sp = parser.getContentHandler().getSpectra()
+	clean_up(sp)
+
+#
 # cleans up spectra to conform to search engine requirements
 #
+
 def clean_up(_sp,l = 50):
 	sp = _sp
 	a = 0
