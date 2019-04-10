@@ -239,7 +239,7 @@ def generate_vstack(_mods,_pos,_depth = 3):
 #
 #	iterate to the specified depth of modification
 #
-	while d < _depth:
+	while d <= _depth:
 #
 #		generate a list of all possible combinations of "d" modifications
 #
@@ -259,29 +259,6 @@ def generate_vstack(_mods,_pos,_depth = 3):
 				vs_pos[v] = [x[1] for x in ml if x[0] == v]
 				dm += _mods[v][0]*len(vs_pos[v])
 			v_stack.append([vs_pos,dm])
-		d += 1
-	return v_stack
-
-def generate_vstack_1(_mods,_pos):
-	v_stack = []
-	vs_pos = {}
-	for v in _mods:
-		vs_pos[v] = []
-	vs_item = [vs_pos,0]
-	v_stack.append(vs_item)
-	depth = 3
-	d = 1
-	while d < depth:
-		for v in _mods:
-			if v not in _pos:
-				continue
-			l_pos = list(itertools.combinations(_pos[v],d))
-			if len(l_pos) == 0:
-				break
-			for lt in l_pos:
-				vs_pos = {}
-				vs_pos[v] = list(lt)
-				v_stack.append([vs_pos,len(lt)*_mods[v][0]])
 		d += 1
 	return v_stack
 
