@@ -56,10 +56,10 @@ def load_jsms(_in):
 			ms = js['ms']
 			vs = []
 			for m in ms:
-				vs.append(int(round(1000*(m-protein),0)))
+				vs.append(int(round(1000*(m-proton),0)))
 			js['ms'] = vs
 			sp.append(js)
-			if len(sp) % 1000 == 0:
+			if len(sp) % 10000 == 0:
 				print('.',end='')
 				sys.stdout.flush()
 	f.close()
@@ -341,9 +341,9 @@ def clean_up(_sp,l = 50):
 		sMs = sMs[:l]
 		sIs = sIs[:l]
 		minI = sIs[0]/100
-		while sIs[-1] < minI:
-			sMs.delete(-1)
-			sIs.delete(-1)
+		while sIs[-1] < minI and len(sMs) > 0:
+			sMs.pop(-1)
+			sIs.pop(-1)
 			deleted += 1
 		sIs = [x for _,x in sorted(zip(sMs,sIs))]
 		sMs.sort()
