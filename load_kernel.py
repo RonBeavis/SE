@@ -42,11 +42,19 @@ def read_kernel(_f,_s,_param,_qi):
 	else:
 		f = open(_f,'r', encoding='utf-8')
 #
-# 	retrieve information from the _param dictionary and
-#	create faster local variables
+#	set kernel offset when loading multiple kernel files
 #
 	qn = _qi
 
+#
+# 	retrieve information from the _param dictionary and
+#	create faster local variables
+#
+	depth = 4
+	if 'ptm depth' in _param:
+		depth = _param['ptm depth']
+	if depth > 10:
+		depth = 10
 	res = _param['parent mass tolerance']
 	ires = float(res)
 	nt_ammonia = True
@@ -113,7 +121,7 @@ def read_kernel(_f,_s,_param,_qi):
 # 		generate variable modification information
 #
 		v_pos = generate_vd(v_mods,seq)
-		v_stack = generate_vstack(v_mods,v_pos)
+		v_stack = generate_vstack(v_mods,v_pos,depth)
 		ok = False
 		delta = 0
 		b_mods = []
@@ -209,26 +217,72 @@ def normalize(_v):
 # in a single element
 #
 
-def generate_vstack(_mods,_pos):
+def generate_vstack(_mods,_pos,_depth = 3):
+	v_stack = []
+	vs_pos = {}
+	master_list = []
+#
+#	create an empty vs_pos dict (unmodified)
+#	and generate a list of the possible modifications
+#	where each element is a tuple of (residue,position)
+#
+	for v in _mods:
+		vs_pos[v] = []
+		if v not in _pos:
+			continue
+		else:
+			for p in _pos[v]:
+				master_list.append((v,p))
+	vs_item = [vs_pos,0]
+	v_stack.append(vs_item)
+	d = 1
+#
+#	iterate to the specified depth of modification
+#
+	while d < _depth:
+#
+#		generate a list of all possible combinations of "d" modifications
+#
+		m_list = list(itertools.combinations(master_list,d))
+#
+#		iterate through the modification combinations to create
+#		the structures used to update the b and y ion lists
+#		and supply the peptide mass change caused by the modifications
+#
+		for ml in m_list:
+			dm = 0
+			vs_pos = {}
+			for v in _mods:
+				if v not in _pos:
+					continue
+				vs_pos[v] = []
+				vs_pos[v] = [x[1] for x in ml if x[0] == v]
+				dm += _mods[v][0]*len(vs_pos[v])
+			v_stack.append([vs_pos,dm])
+		d += 1
+	return v_stack
+
+def generate_vstack_1(_mods,_pos):
 	v_stack = []
 	vs_pos = {}
 	for v in _mods:
 		vs_pos[v] = []
 	vs_item = [vs_pos,0]
 	v_stack.append(vs_item)
-	for v in _mods:
-		if v not in _pos:
-			continue
-		l_pos = list(itertools.combinations(_pos[v],1))
-		for lt in l_pos:
-			vs_pos = {}
-			vs_pos[v] = list(lt)
-			v_stack.append([vs_pos,len(vs_pos)*_mods[v][0]])
-		l_pos = list(itertools.combinations(_pos[v],2))
-		for lt in l_pos:
-			vs_pos = {}
-			vs_pos[v] = list(lt)
-			v_stack.append([vs_pos,len(vs_pos)*_mods[v][0]])
+	depth = 3
+	d = 1
+	while d < depth:
+		for v in _mods:
+			if v not in _pos:
+				continue
+			l_pos = list(itertools.combinations(_pos[v],d))
+			if len(l_pos) == 0:
+				break
+			for lt in l_pos:
+				vs_pos = {}
+				vs_pos[v] = list(lt)
+				v_stack.append([vs_pos,len(lt)*_mods[v][0]])
+		d += 1
 	return v_stack
 
 #
@@ -308,6 +362,10 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods):
 	ms = js['bs']+js['ys']
 	ms.sort()
 	js['ms'] = ms
+	if js.pop('bs',None) is None:
+		print('error removing bs')
+	if js.pop('ys',None) is None:
+		print('error removing ys')
 	return js	
 
 #

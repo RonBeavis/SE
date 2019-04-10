@@ -23,17 +23,18 @@ import xml.sax
 #
 
 def load_spectra(_in):
-	if _in.find('.mgf') == len(_in)-4:
+	test = _in.lower()
+	if test.find('.mgf') == len(test)-4:
 		return load_mgf(_in)
-	elif _in.find('.mgf.gz') == len(_in)-7:
+	elif test.find('.mgf.gz') == len(test)-7:
 		return load_mgf(_in)
-	elif _in.find('.jsms') == len(_in)-5:
+	elif test.find('.jsms') == len(test)-5:
 		return load_jsms(_in)
-	elif _in.find('.jsms.gz') == len(_in)-8:
+	elif test.find('.jsms.gz') == len(test)-8:
 		return load_jsms(_in)
-	elif _in.find('.mzml') == len(_in)-5:
+	elif test.find('.mzml') == len(test)-5:
 		return load_mzml(_in)
-	elif _in.find('.mzml.gz') == len(_in)-8:
+	elif test.find('.mzml.gz') == len(test)-8:
 		return load_mzml(_in)
 	return load_mgf(_in)
 
@@ -249,7 +250,7 @@ class mzMLHandler(xml.sax.ContentHandler):
 					a += 1
 				self.jsms['ms'] = Ms
 				self.jsms['is'] = Is
-				self.jsms['pm'] = int(round(1000*(self.js['pm']*self.js['pz']-proton*self.js['pz']),0))
+				self.jsms['pm'] = int(round(1000*(self.jsms['pm']*self.jsms['pz']-self.proton*self.jsms['pz']),0))
 				if 'zs' in self.jsms:
 					self.jsms['zs'] = Zs
 				self.jsms['np'] = len(Ms)
@@ -323,6 +324,7 @@ def load_mzml(_in):
 	parser.parse(open(fpath,"r"))
 	sp = parser.getContentHandler().getSpectra()
 	clean_up(sp)
+	return sp
 
 #
 # cleans up spectra to conform to search engine requirements

@@ -1,12 +1,13 @@
 {
 "spectra file": "../spectra/GPM70110026751.cmn.mgf",
-"kernel file": "../kernels/crap.kernel,../kernels/Saccharomyces_cerevisiae.R64-1-1.kernel", 
+"kernel file": "../kernels/crap.kernel,../kernels/Saccharomyces_cerevisiae.R64-1-1.KR.kernel", 
 "output file": "default.tsv",
 "fragment mass tolerance": 400,
 "parent mass tolerance": 10,
 "p mods":{"C":[57021,57021],"U":[57021,57021],"K":[0,6020],"R":[0,6020]},
-"v mods":{"M":[15995]},
+"v mods":{"M":[15995],"[":[43006],"K":[43006]},
 "o mods":{"nt-ammonia":true,"nt-water":true},
-"c13": true
+"c13": true,
+"ptm depth": 4
 }
 
