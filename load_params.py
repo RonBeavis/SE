@@ -137,10 +137,11 @@ def load_params(_argv):
 #
 	para_min = {'fragment mass tolerance': 400,
 		'parent mass tolerance': 10,
-		'p mods':{'C':[57021],'U':[57021]},
-		'v mods':{'M':[15995]},
-		'o mods':{'nt-ammonia':True,'nt-water':True},
-		'c13':False}
+		'mods p': {'C':[57021],'U':[57021]},
+		'mods v': {'M':[15995]},
+		'mods o': {'nt-ammonia':True,'nt-water':True},
+		'c13': False,
+		'output valid only': False}
 	for p in para_min:
 		if p not in params:
 			params[p] = para_min[p]

@@ -78,8 +78,17 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	if not ofile:
 		print('Error: specified output file "%s" could not be opened\n       nothing written to file' % (_of))
 		return False
+	valid_only = False
+	if 'output valid only' in _params:
+		valid_only = _params['output valid only']
+	use_bcid = False
+	if 'output bcid' in _params:
+		use_bcid = _params['output bcid']
 	valid_ids = 0
-	line = 'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tsequence\tmodifications\tions\tscore\tdM\tbcid\n'
+	line = 'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM'
+	if use_bcid:
+		line += '\tbcid'
+	line += '\n'
 	ofile.write(line)
 	psm = 1
 	for j in _ids:
@@ -90,6 +99,9 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 		if 'sc' in _spectra[j]:
 			scan = '%i' % _spectra[j]['sc']
 		if len(_ids[j]) == 0:
+			if valid_only:
+				psm += 1
+				continue
 			line = '%i\t%i\t%s\t%s\t%.3f\t%i\t\t\t\t\t\t\t\t\t\n' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'])
 			psm += 1
 		else:
@@ -100,7 +112,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 				kern = _kernel[i]
 				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],kern['lb'])
 				psm += 1
-				line += '%i\t%i\t%s\t' % (kern['beg'],kern['end'],kern['seq'])
+				line += '%i\t%i\t%s\t%s\t%s\t' % (kern['beg'],kern['end'],kern['pre'],kern['seq'],kern['post'])
 				lseq = list(kern['seq'])
 				for k in kern['mods']:
 					for c in k:
@@ -110,7 +122,9 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 							line += '%s%s#%.3f;' % (lseq[int(c)-int(kern['beg'])],c,k[c]/1000)
 				line += '\t%i\t%i\t%.3f' % (_scores[j],100.0*_scores[j]/float(len(kern['seq'])),(_spectra[j]['pm']-(kern['pm']))/1000.0)
 				mhash.update(sline+(json.dumps(kern)).encode())
-				line += '\t%s\n' % (mhash.hexdigest())
+				if use_bcid:
+					line += '\t%s' % (mhash.hexdigest())
+				line += '\n'
 		ofile.write(line)
 	ofile.close()
 	print('\n3. Output parameters:')

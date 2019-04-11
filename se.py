@@ -12,7 +12,7 @@ import time
 import sys
 import datetime
 from load_spectra import load_spectra
-from load_kernel import read_kernel
+from load_kernel import load_kernel
 from load_params import load_params,load_defaults
 from perform_ids import perform_ids
 from display_ids import simple_display,tsv_file
@@ -42,6 +42,11 @@ def main():
 #
 #	load kernels from files, using command line specified list
 #
+	delta = time.time()-start
+	job_stats['Load time spectra'] = delta
+	print('   %.3f s' % (delta))
+	start = time.time()
+
 	print('\nLoading kernel')
 	kfs = params['kernel file'].split(',')
 	kernel = []
@@ -49,7 +54,7 @@ def main():
 	k = 0
 	qn = 0
 	for kf in kfs:
-		(kern,s_list,k1,qn) = read_kernel(kf,spectra,params,qn)
+		(kern,s_list,k1,qn) = load_kernel(kf,spectra,params,qn)
 		kernel += kern
 		for s in s_list:
 			if s in spectrum_list:
@@ -59,9 +64,10 @@ def main():
 		k += k1
 	job_stats['K-dimension'] = k
 	job_stats['KS-intersection'] = len(kernel)
-	job_stats['Load time'] = time.time()-start
-
-	start = time.time()
+	delta = time.time()-start
+	job_stats['Load time kernel'] = delta
+	print('   %.3f s' % (delta))
+	start = time.time() 
 #
 #	generate identifications
 #

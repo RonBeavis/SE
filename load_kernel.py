@@ -36,7 +36,7 @@ amino_acids =	{ 'A':71037,'R':156101,'N':114043,'D':115027,'C':103009,'E':129043
 # this method is the only one called externally
 #
 
-def read_kernel(_f,_s,_param,_qi):
+def load_kernel(_f,_s,_param,_qi):
 	if _f.find('.gz') == len(_f) - 3:
 		f = gzip.open(_f,'rt', encoding='utf-8')
 	else:
@@ -50,7 +50,7 @@ def read_kernel(_f,_s,_param,_qi):
 # 	retrieve information from the _param dictionary and
 #	create faster local variables
 #
-	depth = 4
+	depth = 3
 	if 'ptm depth' in _param:
 		depth = _param['ptm depth']
 	if depth > 10:
@@ -58,21 +58,21 @@ def read_kernel(_f,_s,_param,_qi):
 	res = _param['parent mass tolerance']
 	ires = float(res)
 	nt_ammonia = True
-	if 'nt-ammonia' in _param['o mods']:
-		nt_ammonia = _param['o mods']['nt-ammonia']
+	if 'nt-ammonia' in _param['mods o']:
+		nt_ammonia = _param['mods o']['nt-ammonia']
 	nt_water = True
-	if 'nt-water' in _param['o mods']:
-		nt_water = _param['o mods']['nt-water']
+	if 'nt-water' in _param['mods o']:
+		nt_water = _param['mods o']['nt-water']
 	use_c13 = True
 	if 'c13' in _param:
 		use_c13 = _param.get('c13')
 	acetyl = modifications['acetyl']
 	p_mods = {}
 	v_mods = {}
-	if 'p mods' in _param:
-		p_mods = _param['p mods']
-	if 'v mods' in _param:
-		v_mods = _param['v mods']
+	if 'mods p' in _param:
+		p_mods = _param['mods p']
+	if 'mods v' in _param:
+		v_mods = _param['mods v']
 #
 # 	create local variables for specific masses
 #
@@ -95,6 +95,8 @@ def read_kernel(_f,_s,_param,_qi):
 #
 	print('.',end='')
 	sys.stdout.flush()
+#	lines = f.readlines()
+	
 	for l in f:
 #
 # 		show activity to the user
@@ -104,7 +106,7 @@ def read_kernel(_f,_s,_param,_qi):
 			sys.stdout.flush()
 		v_pos = {}
 #
-# 		quickly retrieve kernel mass, protein coordinate and peptide sequence
+# 		retrieve kernel mass, protein coordinate and peptide sequence
 #		this is much faster than doing a jsons.loads at this point
 #
 		m = re.search('"pm": (.+?)\,.+"beg": (\d+).+"seq": "(.+?)"',l)
@@ -148,6 +150,7 @@ def read_kernel(_f,_s,_param,_qi):
 				if use_c13 and tmass > 1500:
 					pms += get_spectra(s_index,tmass+c13,ires)
 				appended = False
+				js_base = None
 				for s in pms:
 					delta = s_masses[s]-tmass
 					if abs(delta) < res or abs(delta-c13) < res:
@@ -155,7 +158,9 @@ def read_kernel(_f,_s,_param,_qi):
 							spectrum_list[s] = []
 						spectrum_list[s].append(qn)
 						if not appended:
-							qs.append(load_json(l,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods))
+							if js_base is None:
+								js_base = load_base(l,p_pos,p_mods,lp)
+							qs.append(load_json(js_base,b_mods,y_mods,lp,vs_pos,v_mods))
 							appended = True
 				if appended:
 					qn += 1
@@ -174,7 +179,9 @@ def read_kernel(_f,_s,_param,_qi):
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if not appended:
-								qs.append(load_json(l,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods))
+								if js_base is None:
+									js_base = load_base(l,p_pos,p_mods,lp)
+								qs.append(load_json(js_base,b_mods,y_mods,lp,vs_pos,v_mods))
 								appended = True
 
 				if appended:
@@ -197,7 +204,9 @@ def read_kernel(_f,_s,_param,_qi):
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if not appended:
-								qs.append(load_json(l,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods))
+								if js_base is None:
+									js_base = load_base(l,p_pos,p_mods,lp)
+								qs.append(load_json(js_base,b_mods,y_mods,lp,vs_pos,v_mods))
 								appended = True
 
 				if appended:
@@ -255,7 +264,6 @@ def generate_vstack(_mods,_pos,_depth = 3):
 			for v in _mods:
 				if v not in _pos:
 					continue
-				vs_pos[v] = []
 				vs_pos[v] = [x[1] for x in ml if x[0] == v]
 				dm += _mods[v][0]*len(vs_pos[v])
 			v_stack.append([vs_pos,dm])
@@ -325,25 +333,32 @@ def generate_lpstack(_mods,_seq):
 # using the information generated from the allowed modification lists
 #
 
-def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods):
-	js = json.loads(_l)
-	js['mods'] = []
+def load_base(_l,_p_pos,_p_mods,_lp):
+	jin = json.loads(_l)
+	jin['mods'] = []
 	if len(_p_pos) > 0:
-		js = update_ions(js,_p_mods,_p_pos,_lp)
+		jin = update_ions(jin,_p_mods,_p_pos,_lp)
+	return jin	
+
+def load_json(_js,_b_mods,_y_mods,_lp,_vs_pos,_v_mods):
+	jin = _js.copy()
 	if len(_vs_pos) > 0:
-		js = update_ions(js,_v_mods,_vs_pos,0)
+		jin = update_ions(jin,_v_mods,_vs_pos,0)
 	if len(_b_mods):
-		js = update_bions(js,_b_mods)
+		jin = update_bions(jin,_b_mods)
 	if len(_y_mods):
-		js = update_yions(js,_y_mods)
-	ms = js['bs']+js['ys']
+		jin = update_yions(jin,_y_mods)
+	ms = jin['bs']+jin['ys']
 	ms.sort()
-	js['ms'] = ms
-	if js.pop('bs',None) is None:
+	jin['ms'] = ms
+	if jin.pop('bs',None) is None:
 		print('error removing bs')
-	if js.pop('ys',None) is None:
+	if jin.pop('ys',None) is None:
 		print('error removing ys')
-	return js	
+#	v = []
+#	for j in jin:
+#		v.append(jin[j])
+	return jin	
 
 #
 # method to update ion series based on a set of modifications specified by:
@@ -352,10 +367,11 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods):
 # _lp - the position in _pos
 #
 def update_ions(_js,_mods,_pos,_lp):
-	js = _js
-	t = len(js['bs'])
+	jin = _js.copy()
+	t = len(jin['bs'])
 	mods = {}
 	tmod = 0.0
+	beg = jin['beg']
 	for m in _mods:
 		if len(_pos[m]) == 0:
 			continue
@@ -364,16 +380,16 @@ def update_ions(_js,_mods,_pos,_lp):
 		pmod = _mods[m][_lp]
 		while a < t:
 			if a in _pos[m]:
-				mods[str(js['beg']+a)] = pmod
+				mods[beg+a] = pmod
 				tmod += pmod
 				delta += pmod
 			if delta == 0:
 				a += 1
 				continue
-			js['bs'][a] += delta
+			jin['bs'][a] += delta
 			a += 1
 		if a in _pos[m]:
-			mods[str(js['beg']+a)] = pmod
+			mods[beg+a] = pmod
 			tmod += pmod
 		a = 0
 		delta = 0
@@ -383,11 +399,11 @@ def update_ions(_js,_mods,_pos,_lp):
 			if delta == 0:
 				a += 1
 				continue
-			js['ys'][a] += delta
+			jin['ys'][a] += delta
 			a += 1
-	js['mods'].append(mods)
-	js['pm'] += tmod
-	return js
+	jin['mods'].append(mods)
+	jin['pm'] += tmod
+	return jin
 
 #
 # two ion series update functions that deal with modifications to either
@@ -399,12 +415,13 @@ def update_ions(_js,_mods,_pos,_lp):
 #       debugging
 #
 def update_bions(_js,_bmods):
-	js = _js
+	js = _js.copy()
 	t = len(js['bs'])
 	mods = {}
+	beg = js['beg']
 	for b in _bmods:
 		js['pm'] += b
-		mods[str(js['beg'])] = b
+		mods[beg] = b
 		a = 0
 		while a < t:
 			js['bs'][a] += b
@@ -413,12 +430,13 @@ def update_bions(_js,_bmods):
 	return js
 
 def update_yions(_js,_ymods):
-	js = _js
+	js = _js.copy()
 	t = len(js['ys'])
 	mods = {}
+	end = js['end']
 	for b in _ymods:
 		js['pm'] += b
-		mods[str(js['end'])] = b
+		mods[end] = b
 		a = 0
 		while a < t:
 			js['ys'][a] += b

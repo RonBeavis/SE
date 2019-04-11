@@ -9,6 +9,7 @@
 "mods o":{"nt-ammonia":true,"nt-water":true},
 "c13": true,
 "ptm depth": 3,
-"output valid only": true
+"output valid only": true,
+"output bcid": false
 }
 
