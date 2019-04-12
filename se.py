@@ -37,7 +37,7 @@ def main():
 	spectra = []
 	sfs = params['spectra file'].split(',')
 	for sf in sfs:
-		spectra += load_spectra(sf)
+		spectra += load_spectra(sf,params)
 	job_stats['S-dimension'] = len(spectra)
 #
 #	load kernels from files, using command line specified list
@@ -50,12 +50,17 @@ def main():
 	print('\nLoading kernel')
 	kfs = params['kernel file'].split(',')
 	kernel = []
+	kmass = []
 	spectrum_list = {}
 	k = 0
 	qn = 0
+	kernel_order = {}
 	for kf in kfs:
-		(kern,s_list,k1,qn) = load_kernel(kf,spectra,params,qn)
+		(kern,km,s_list,k1,qn,kernel_order) = load_kernel(kf,spectra,params,qn)
+		if kernel_order is not None:
+			params['kernel order'] = kernel_order
 		kernel += kern
+		kmass += km
 		for s in s_list:
 			if s in spectrum_list:
 				spectrum_list[s] += s_list[s]
@@ -72,8 +77,11 @@ def main():
 #	generate identifications
 #
 	print('\nRunning ids')
-	(ids,scores) = perform_ids(spectra,kernel,spectrum_list,params)
+	(ids,scores) = perform_ids(spectra,kmass,spectrum_list,params)
+	delta = time.time()-start
 	job_stats['Search time'] = time.time()-start
+	print('   %.3f s' % (delta))
+	start = time.time() 
 	job_stats['Search time (/1000)'] = 1000*(time.time()-start)/len(spectra)
 	job_stats['End'] = str(datetime.datetime.now())
 #

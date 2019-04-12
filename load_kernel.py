@@ -12,23 +12,23 @@
 # create_index_b and get_spectra_b
 #import bisect 
 
-import json
+import ujson
 import re
 import gzip
 import sys
 import itertools
-
 #
 # some handy lists of masses, in integer milliDaltons
 #
 
 modifications =	{ 'oxidation':15995,'carbamidomethyl':57021,'acetyl':42011,'dioxidation':31990,
 		 'deamidation':984, 'carbamyl':43006,'phosphoryl':79966 }
-isotopes =	{ 'p':1.007276,'C13':13.003355,'H1':1.007825,'H2':2.014102,'C12':12.0,'N14':14.003074,
+isotopes =	{ 'p':1.007276,'H1':1.007825,'H2':2.014102,'C12':12.0,'C13':13.003355,'N14':14.003074,
 		 'O16':15.994915,'S32':31.972072 }
 amino_acids =	{ 'A':71037,'R':156101,'N':114043,'D':115027,'C':103009,'E':129043,'Q':128059,'G':57021,
 		 'H':137059,'I':113084,'L':113084,'K':128095,'M':131040,'F':147068,'P':97053,'S':87032,
 		 'T':101048,'U':150954,'W':186079,'Y':163063,'V':99068 }
+kernel_order = None
 #
 # method to generate a list of kernels that are potential matches for the input list of spectra (_s)
 # the kernels are read from a file (_f) and a set of parameters (_param) govern the way that
@@ -45,6 +45,9 @@ def load_kernel(_f,_s,_param,_qi):
 #	set kernel offset when loading multiple kernel files
 #
 	qn = _qi
+	sms_list = []
+	for s in _s:
+		sms_list.append(set(s['sms']))
 
 #
 # 	retrieve information from the _param dictionary and
@@ -57,6 +60,7 @@ def load_kernel(_f,_s,_param,_qi):
 		depth = 10
 	res = _param['parent mass tolerance']
 	ires = float(res)
+	fres = float(_param['fragment mass tolerance'])
 	nt_ammonia = True
 	if 'nt-ammonia' in _param['mods o']:
 		nt_ammonia = _param['mods o']['nt-ammonia']
@@ -85,6 +89,7 @@ def load_kernel(_f,_s,_param,_qi):
 	t = 0
 	pms = []
 	qs = []
+	qm = []
 	spectrum_list = {}
 	p_pos = {}
 	v_pos = {}
@@ -96,7 +101,6 @@ def load_kernel(_f,_s,_param,_qi):
 	print('.',end='')
 	sys.stdout.flush()
 #	lines = f.readlines()
-	
 	for l in f:
 #
 # 		show activity to the user
@@ -143,6 +147,8 @@ def load_kernel(_f,_s,_param,_qi):
 			vs_pos = vp[0]
 			vs_total= vp[1]
 			for lp in range(lp_len):
+				b_mods = []
+				y_mods = []
 				p_pos = lp_pos[lp]
 				p_total = lp_total[lp]+vs_total
 				tmass = pm+p_total
@@ -150,44 +156,66 @@ def load_kernel(_f,_s,_param,_qi):
 				if use_c13 and tmass > 1500:
 					pms += get_spectra(s_index,tmass+c13,ires)
 				appended = False
-				js_base = None
+				jv = None
+				jc = None
 				for s in pms:
 					delta = s_masses[s]-tmass
 					if abs(delta) < res or abs(delta-c13) < res:
-						if s not in spectrum_list:
-							spectrum_list[s] = []
-						spectrum_list[s].append(qn)
-						if not appended:
-							if js_base is None:
-								js_base = load_base(l,p_pos,p_mods,lp)
-							qs.append(load_json(js_base,b_mods,y_mods,lp,vs_pos,v_mods))
-							appended = True
+						if jv is None:
+							(jv,jm) = load_json(l,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+#						score = score_id(_s[s]['sms'],jm)
+						sms = sms_list[s]
+						c = 0
+						for k in jm:
+							if k in sms:
+								c += 1
+						if c >= 5:
+							if not appended:
+								qs.append(jv)
+								qm.append(jm)
+								appended = True
+							if s not in spectrum_list:
+								spectrum_list[s] = []
+							spectrum_list[s].append(qn)
 				if appended:
 					qn += 1
 				appended = False
-				if beg < 3:
+				if beg < 4:
+					b_mods = []
+					y_mods = []
 					tmass = pm+p_total+acetyl
 					pms = get_spectra(s_index,tmass,ires)
 					if use_c13 and tmass > 1500:
 						pms += get_spectra(s_index,tmass+c13,ires)
+					jv = None
+					jc = None
 					for s in pms:
 						delta = s_masses[s]-pm-p_total
 						if abs(delta-acetyl) < res or abs(delta-acetyl-c13) < res:
-							if s not in spectrum_list:
-								spectrum_list[s] = []
-							spectrum_list[s].append(qn)
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
-							if not appended:
-								if js_base is None:
-									js_base = load_base(l,p_pos,p_mods,lp)
-								qs.append(load_json(js_base,b_mods,y_mods,lp,vs_pos,v_mods))
-								appended = True
+							if jv is None:
+								(jv,jm) = load_json(l,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+							sms = sms_list[s]
+							c = 0
+							for k in jm:
+								if k in sms:
+									c += 1
+							if c >= 5:
+								if not appended:
+									qs.append(jv)
+									qm.append(jm)
+									appended = True
+								if s not in spectrum_list:
+									spectrum_list[s] = []
+								spectrum_list[s].append(qn)
 
 				if appended:
 					qn += 1
 				appended = False
 				if ammonia_loss or water_loss:
+					b_mods = []
+					y_mods = []
 					dvalue = ammonia
 					if water_loss:
 						d_value = water
@@ -195,25 +223,35 @@ def load_kernel(_f,_s,_param,_qi):
 					pms = get_spectra(s_index,tmass,ires)
 					if use_c13 and tmass > 1500:
 						pms += get_spectra(s_index,tmass+c13,ires)
+					jv = None
+					jc = None
 					for s in pms:
 						delta = s_masses[s]-pm-p_total
 						if abs(delta+dvalue) < res or abs(delta+dvalue-c13) < res:
-							if s not in spectrum_list:
-								spectrum_list[s] = []
-							spectrum_list[s].append(qn)
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
-							if not appended:
-								if js_base is None:
-									js_base = load_base(l,p_pos,p_mods,lp)
-								qs.append(load_json(js_base,b_mods,y_mods,lp,vs_pos,v_mods))
-								appended = True
+							if jv is None:
+								(jv,jm) = load_json(l,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+							sms = sms_list[s]
+							c = 0
+							for k in jm:
+								if k in sms:
+									c += 1
+							if c >= 5:
+								if not appended:
+									qs.append(jv)
+									qm.append(jm)
+									appended = True
+								if s not in spectrum_list:
+									spectrum_list[s] = []
+								spectrum_list[s].append(qn)
 
 				if appended:
 					qn += 1
+				js_base = None
 
 		t += 1
-	return (qs,spectrum_list,t,qn)
+	return (qs,qm,spectrum_list,t,qn,kernel_order)
 #
 # method to convert floating point masses in Daltons to integer masses in milliDaltons
 #
@@ -333,15 +371,11 @@ def generate_lpstack(_mods,_seq):
 # using the information generated from the allowed modification lists
 #
 
-def load_base(_l,_p_pos,_p_mods,_lp):
-	jin = json.loads(_l)
+def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
+	jin = ujson.loads(_l)
 	jin['mods'] = []
 	if len(_p_pos) > 0:
 		jin = update_ions(jin,_p_mods,_p_pos,_lp)
-	return jin	
-
-def load_json(_js,_b_mods,_y_mods,_lp,_vs_pos,_v_mods):
-	jin = _js.copy()
 	if len(_vs_pos) > 0:
 		jin = update_ions(jin,_v_mods,_vs_pos,0)
 	if len(_b_mods):
@@ -350,15 +384,22 @@ def load_json(_js,_b_mods,_y_mods,_lp,_vs_pos,_v_mods):
 		jin = update_yions(jin,_y_mods)
 	ms = jin['bs']+jin['ys']
 	ms.sort()
-	jin['ms'] = ms
-	if jin.pop('bs',None) is None:
-		print('error removing bs')
-	if jin.pop('ys',None) is None:
-		print('error removing ys')
-#	v = []
-#	for j in jin:
-#		v.append(jin[j])
-	return jin	
+	ms = [int(0.5+i/_fres) for i in ms]
+	global kernel_order
+	if kernel_order is None:
+		kernel_order = {}
+		x = 0
+		for j in jin:
+			if j == 'bs' or j == 'ys':
+				continue
+			kernel_order[j] = x
+			x += 1
+	v = []
+	for j in jin:
+		if j == 'bs' or j == 'ys':
+			continue
+		v.append(jin[j])
+	return (v,ms)	
 
 #
 # method to update ion series based on a set of modifications specified by:
@@ -378,29 +419,25 @@ def update_ions(_js,_mods,_pos,_lp):
 		a = 0
 		delta = 0
 		pmod = _mods[m][_lp]
-		while a < t:
+		for a in range(t):
 			if a in _pos[m]:
 				mods[beg+a] = pmod
 				tmod += pmod
 				delta += pmod
 			if delta == 0:
-				a += 1
 				continue
 			jin['bs'][a] += delta
-			a += 1
-		if a in _pos[m]:
-			mods[beg+a] = pmod
+		if t in _pos[m]:
+			mods[beg+t] = pmod
 			tmod += pmod
 		a = 0
 		delta = 0
-		while a < t:
+		for a in range(t):
 			if t-a in _pos[m]:
 				delta += pmod
 			if delta == 0:
-				a += 1
 				continue
 			jin['ys'][a] += delta
-			a += 1
 	jin['mods'].append(mods)
 	jin['pm'] += tmod
 	return jin
@@ -422,10 +459,8 @@ def update_bions(_js,_bmods):
 	for b in _bmods:
 		js['pm'] += b
 		mods[beg] = b
-		a = 0
-		while a < t:
+		for a in range(t):
 			js['bs'][a] += b
-			a += 1
 	js['mods'].append(mods)
 	return js
 
@@ -437,10 +472,8 @@ def update_yions(_js,_ymods):
 	for b in _ymods:
 		js['pm'] += b
 		mods[end] = b
-		a = 0
-		while a < t:
+		for a in range(t):
 			js['ys'][a] += b
-			a += 1
 	js['mods'].append(mods)
 	return js
 

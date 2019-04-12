@@ -7,7 +7,7 @@
 #
 
 import gzip
-import json
+import ujson
 import re
 import sys
 import struct
@@ -22,27 +22,27 @@ import xml.sax
 # only externally called method
 #
 
-def load_spectra(_in):
+def load_spectra(_in,_param):
 	test = _in.lower()
 	if test.find('.mgf') == len(test)-4:
-		return load_mgf(_in)
+		return load_mgf(_in,_param)
 	elif test.find('.mgf.gz') == len(test)-7:
-		return load_mgf(_in)
+		return load_mgf(_in,_param)
 	elif test.find('.jsms') == len(test)-5:
-		return load_jsms(_in)
+		return load_jsms(_in,_param)
 	elif test.find('.jsms.gz') == len(test)-8:
-		return load_jsms(_in)
+		return load_jsms(_in,_param)
 	elif test.find('.mzml') == len(test)-5:
-		return load_mzml(_in)
+		return load_mzml(_in,_param)
 	elif test.find('.mzml.gz') == len(test)-8:
-		return load_mzml(_in)
+		return load_mzml(_in,_param)
 	return load_mgf(_in)
 
 #
 # JSMS parser
 #
 
-def load_jsms(_in):
+def load_jsms(_in,_param):
 	sp = []
 	if _in.find('.gz') == len(_in) - 3:
 		f = gzip.open(_in,'rt',encoding = 'utf8')
@@ -50,7 +50,7 @@ def load_jsms(_in):
 		f = open(_in,'r',encoding = 'utf8')
 	proton = 1.007276
 	for l in f:
-		js = json.loads(l)
+		js = ujson.loads(l)
 		if 'lv' in js and 'pz' in js:
 			js['pm'] = int(round(1000*(js['pm']*js['pz']-proton*js['pz']),0))
 			ms = js['ms']
@@ -63,12 +63,12 @@ def load_jsms(_in):
 				print('.',end='')
 				sys.stdout.flush()
 	f.close()
-	sp = clean_up(sp)
+	sp = clean_up(sp,50,float(_param['fragment mass tolerance']))
 	return sp
 #
 # MGF parser
 #
-def load_mgf(_in):
+def load_mgf(_in,_param):
 	if _in.find('.gz') == len(_in) - 3:
 		ifile = gzip.open(_in,'rt')
 	else:
@@ -149,7 +149,7 @@ def load_mgf(_in):
 				continue						
 			Ms.append(m)
 			Is.append(i)
-	sp = clean_up(sp)
+	sp = clean_up(sp,50,float(_param['fragment mass tolerance']))
 	return sp
 #
 #	mzML parser
@@ -317,20 +317,20 @@ class mzMLHandler(xml.sax.ContentHandler):
 # and parses the mzML file
 #
 
-def load_mzml(_in):
+def load_mzml(_in,_param):
 	fpath = _in
 	parser = xml.sax.make_parser()
 	parser.setContentHandler(mzMLHandler())
 	parser.parse(open(fpath,"r"))
 	sp = parser.getContentHandler().getSpectra()
-	clean_up(sp)
+	clean_up(sp,50,float(_param['fragment mass tolerance']))
 	return sp
 
 #
 # cleans up spectra to conform to search engine requirements
 #
 
-def clean_up(_sp,l = 50):
+def clean_up(_sp,l,ires):
 	sp = _sp
 	a = 0
 	deleted = 0
@@ -347,8 +347,20 @@ def clean_up(_sp,l = 50):
 			deleted += 1
 		sIs = [x for _,x in sorted(zip(sMs,sIs))]
 		sMs.sort()
-		sp[a]['ms'] = sMs
-		sp[a]['is'] = sIs
+#		sp[a]['ms'] = sMs
+#		sp[a]['is'] = sIs
+		sp[a].pop('ms')
+		sp[a].pop('is')
+		tps = []
+#
+#		generate a normalized set of spectrum masses
+#
+		for s in sMs:
+			val = int(0.5+s/ires)
+			tps.append(val)
+			tps.append(val-1)
+			tps.append(val+1)
+		sp[a]['sms'] = tps
 		a += 1
 	return sp
 

@@ -22,14 +22,13 @@ def perform_ids(_s,_k,_list,_param):
 #
 #	initialize local variables
 #
+	ko = _param['kernel order'].copy()
 	ids = {}
 	scores = {}
 	a = 0
-	res = _param['fragment mass tolerance']
-	ires = 1.0*res
+	ires = float(_param['fragment mass tolerance'])
 	score = 0
 	best_score = 5
-	okerns = []
 #
 #	indicate progress to user
 #
@@ -38,8 +37,9 @@ def perform_ids(_s,_k,_list,_param):
 #
 #	generate an array of normalized of kernel masses
 #
-	for k in _k:
-		okerns.append([int(0.5+i/ires) for i in k['ms']])
+#	for k in _k:
+#		okerns.append([int(0.5+i/ires) for i in k[ko['ms']]])
+
 #
 #	indicate progress to user
 #
@@ -61,23 +61,24 @@ def perform_ids(_s,_k,_list,_param):
 		ks = _list[a]
 		best_score = 5
 		ident = []
-		sps = s['ms']
-		tps = []
+#		sps = s['ms']
+#		tps = []
 #
 #		generate a normalized set of spectrum masses
 #
-		for p in sps:
-			val = int(0.5+p/ires)
-			tps.append(val)
-			tps.append(val-1)
-			tps.append(val+1)
-		s_set = set(tps)
+#		for p in sps:
+#			val = int(0.5+p/ires)
+#			tps.append(val)
+#			tps.append(val-1)
+#			tps.append(val+1)
+		s_set = set(s['sms'])
 #
 #		iterate through kernels on the list
 #		and track scoring
 #
 		for k in ks:
-			score = score_id(s_set,okerns[k])
+#			score = score_id(s_set,okerns[k])
+			score = score_id(s_set,_k[k])
 			if score > best_score:
 				best_score = score
 				ident = []
