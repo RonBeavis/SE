@@ -52,11 +52,11 @@ def load_jsms(_in,_param):
 	for l in f:
 		js = ujson.loads(l)
 		if 'lv' in js and 'pz' in js:
-			js['pm'] = int(round(1000*(js['pm']*js['pz']-proton*js['pz']),0))
+			js['pm'] = int(0.5+1000*(js['pm']*js['pz']-proton*js['pz']))
 			ms = js['ms']
 			vs = []
 			for m in ms:
-				vs.append(int(round(1000*(m-proton),0)))
+				vs.append(int(0.5 + 1000*(m-proton),0))
 			js['ms'] = vs
 			sp.append(js)
 			if len(sp) % 10000 == 0:
@@ -78,45 +78,71 @@ def load_mgf(_in,_param):
 	sp = []
 	Ms = []
 	Is = []
+	MsPos = 0
 	amIn = 0
 	proton = 1.007276
 	found = set([])
 	print('.',end='')
 	sys.stdout.flush()
+	digit = set(['1','2','3','4','5','6','7','8','9'])
 	for line in ifile:
-		line = line.rstrip()
-		if 'BEGIN IONS' not in found and line.find('BEGIN IONS') == 0:
+		fl = line[:1]
+		if fl in digit:
+			vs = line.split(' ')
+			if len(vs) < 2 or len(vs) > 3:
+				continue
+			if float(vs[1]) <= 0.0:
+				continue
+			m = int(0.5 + 1000.0*(float(vs[0])-proton))
+			if m <= 0:
+				continue
+			i = float(vs[1])
+			if i <= 0:
+				continue
+			if MsPos % 1000 == 0:
+				ts = [0 for x in range(1000)]
+				Ms.extend(ts)
+				Is.extend(ts)
+#			Ms.append(m)
+#			Is.append(i)
+			Ms[MsPos] = m
+			Is[MsPos] = i
+			MsPos += 1
+			continue
+#		line.rstrip()
+		gr = re.match('([\w ]+)',line)
+		if not gr:
+			continue
+		tag = gr.group(1)
+		if tag == 'BEGIN IONS':
 			js = {}
 			Ms = []
 			Is = []
+			MsPos = 0
 			amIn = 1
-			found.add('BEGIN IONS')
 		elif amIn == 0:
 			continue
-		elif line.find('END IONS') == 0:
+		elif tag == 'END IONS':
 			js['np'] = len(Ms)
-			js['pm'] = int(round(1000*(js['pm']*js['pz']-proton*js['pz']),0))
-			js['ms'] = Ms
-			js['is'] = Is
+			js['pm'] = int(0.5 + 1000*(js['pm']*js['pz']-proton*js['pz']))
+			js['ms'] = Ms[:MsPos]
+			js['is'] = Is[:MsPos]
 			sp.append(js)
 			if len(sp) % 10000 == 0:
 				print('.',end='')
 				sys.stdout.flush()
 			amIn = 0
-			found = set([])
 			s += 1
-		elif 'PEPMASS' not in found and line.find('PEPMASS') == 0:
+		elif tag == 'PEPMASS':
 			line = re.sub('^PEPMASS\=','',line)
 			vs = line.split(' ')
 			js['pm'] = float(vs[0])
 			if len(vs) > 1:
 				js['pi'] = float(vs[1])
-			found.add('PEPMASS')
-		elif 'RTINSECONDS' not in found and line.find('RTINSECONDS') == 0:
+		elif tag == 'RTINSECONDS':
 			line = re.sub('^RTINSECONDS\=','',line)
 			js['rt'] = float('%.3f' % float(line))
-			found.add('RTINSECONDS')
-		elif 'CHARGE=' not in found and line.find('CHARGE=') == 0:
+		elif  tag == 'CHARGE':
 			line = re.sub('^CHARGE\=','',line)
 			if line.find('+'):
 				line = line.replace('+','')
@@ -124,8 +150,7 @@ def load_mgf(_in,_param):
 			else:
 				line = line.replace('-','')
 				js['pz'] = -1*int(line)
-			found.add('CHARGE=')
-		elif 'TITLE=' not in found and line.find('TITLE=') == 0:
+		elif  tag == 'TITLE':
 			line = re.sub('^TITLE=','',line)
 			line = re.sub('\"','\'',line)
 			js['ti'] = line
@@ -133,22 +158,6 @@ def load_mgf(_in,_param):
 				js['sc'] = int(re.sub('.+scan\=','',line))
 			else:
 				js['sc'] = s+1
-			found.add('TITLE=')
-		else:
-			vs = line.split(' ')
-			if len(vs) < 2 or len(vs) > 3:
-				continue
-			z = 0
-			if float(vs[1]) <= 0.0:
-				continue
-			m = int(round(1000.0*(float(vs[0])-proton),0))
-			if m <= 0:
-				continue
-			i = float(vs[1])
-			if i <= 0:
-				continue						
-			Ms.append(m)
-			Is.append(i)
 	sp = clean_up(sp,50,float(_param['fragment mass tolerance']))
 	return sp
 #
@@ -242,7 +251,7 @@ class mzMLHandler(xml.sax.ContentHandler):
 					if self.jsms['is'][a] <= 0.0:
 						a += 1
 						continue
-					m = int(round(1000.0*(float(self.jsms['ms'][a])-self.proton),0))
+					m = int(0.5 + 1000.0*(float(self.jsms['ms'][a])-self.proton))
 					Ms.append(m)
 					Is.append(self.jsms['is'][a])
 					if 'zs' in self.jsms:
@@ -250,7 +259,7 @@ class mzMLHandler(xml.sax.ContentHandler):
 					a += 1
 				self.jsms['ms'] = Ms
 				self.jsms['is'] = Is
-				self.jsms['pm'] = int(round(1000*(self.jsms['pm']*self.jsms['pz']-self.proton*self.jsms['pz']),0))
+				self.jsms['pm'] = int(0.5 + 1000*(self.jsms['pm']*self.jsms['pz']-self.proton*self.jsms['pz']))
 				if 'zs' in self.jsms:
 					self.jsms['zs'] = Zs
 				self.jsms['np'] = len(Ms)
@@ -258,7 +267,7 @@ class mzMLHandler(xml.sax.ContentHandler):
 				self.n += 1
 				if self.n % 10000 == 0:
 					print('.',end='',flush=True)
-				
+
 			self.jsms = {}
 		if tag == 'scan':
 			self.isScan = False
@@ -285,7 +294,7 @@ class mzMLHandler(xml.sax.ContentHandler):
 						result = struct.unpack('<%if' % (count),data)
 					else:
 						result = struct.unpack('<%id' % (count),data)
-					
+
 				self.jsms['ms'] = result
 				self.jsms['np'] = len(result)
 				self.isMzArray = False
@@ -345,8 +354,8 @@ def clean_up(_sp,l,ires):
 			sMs.pop(-1)
 			sIs.pop(-1)
 			deleted += 1
-		sIs = [x for _,x in sorted(zip(sMs,sIs))]
-		sMs.sort()
+#		sIs = [x for _,x in sorted(zip(sMs,sIs))]
+#		sMs.sort()
 #		sp[a]['ms'] = sMs
 #		sp[a]['is'] = sIs
 		sp[a].pop('ms')

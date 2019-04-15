@@ -18,7 +18,7 @@ import statistics
 
 modifications =	{ 15995:'oxidation',57021:'carbamidomethyl',42011:'acetyl',31990:'dioxidation',
 		28031:'dimethyl',14016:'methyl',984:'deamidation',43006:'carbamyl',79966:'phosphoryl',
-		79966:'phosphoryl',-17027:'ammonia-loss',18011:'water-loss',6020:'Label:+6 Da',
+		-17027:'ammonia-loss',-18011:'water-loss',6020:'Label:+6 Da',
 		10008:'Label:+10 Da',8014:'Label:+8 Da',4025:'Label:+4 Da'}
 
 #
