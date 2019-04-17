@@ -1,3 +1,10 @@
+#
+# Copyright © 2019 Ronald C. Beavis
+# Licensed under Apache License, Version 2.0, January 2004
+#
+#
+# opens an SE output file and generates statistics
+#
 import re
 import sys
 
