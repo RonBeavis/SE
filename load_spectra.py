@@ -57,7 +57,7 @@ def load_jsms(_in,_param):
 			ms = js['ms']
 			vs = []
 			for m in ms:
-				vs.append(int(0.5 + 1000*(m-proton),0))
+				vs.append(int(0.5 + 1000*(m-proton)))
 			js['ms'] = vs
 			js = clean_one(js,50,res)
 			sp.append(js)
