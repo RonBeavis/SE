@@ -114,8 +114,10 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	vresults = 0
 	res = _params['fragment mass tolerance']
 	sfactor = 20
+	sadjust = 1
 	if res > 100:
-		sfactor = 35
+		sfactor = 40
+		sadjust = 0.5
 	for j in _ids:
 		pscore = 0.0
 		rt = ''
@@ -148,7 +150,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 					total_ions = _scores[j] + 1
 				rv = scipy.stats.hypergeom(cells,total_ions,len(_spectra[j]['sms'])/3)
 				p = rv.pmf(_scores[j])
-				pscore = -100.0*math.log10(p)
+				pscore = -100.0*math.log10(p)*sadjust
 				if pscore < pscore_min and valid_only:
 					break
 				valid_ids += 1
