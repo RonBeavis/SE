@@ -58,6 +58,7 @@ def load_kernel(_f,_s,_param,_qi):
 		depth = _param.get('ptm depth')
 	if depth > 10:
 		depth = 10
+	c_limit = 5
 	res = _param.get('parent mass tolerance')
 	ires = float(res)
 	fres = float(_param.get('fragment mass tolerance'))
@@ -186,7 +187,7 @@ def load_kernel(_f,_s,_param,_qi):
 						for k in jm:
 							if k in sms:
 								c += 1
-						if c >= 5:
+						if c >= c_limit:
 							if not appended:
 								qs.append(jv)
 								qm.append(jm)
@@ -221,7 +222,7 @@ def load_kernel(_f,_s,_param,_qi):
 							for k in jm:
 								if k in sms:
 									c += 1
-							if c >= 5:
+							if c >= c_limit:
 								if not appended:
 									qs.append(jv)
 									qm.append(jm)
@@ -238,7 +239,7 @@ def load_kernel(_f,_s,_param,_qi):
 					y_mods = []
 					dvalue = ammonia
 					if water_loss:
-						d_value = water
+						dvalue = water
 					tmass = pm+p_total-dvalue
 					slots = []
 					if use_c13 and tmass > 1500000:
@@ -260,7 +261,7 @@ def load_kernel(_f,_s,_param,_qi):
 							for k in jm:
 								if k in sms:
 									c += 1
-							if c >= 5:
+							if c >= c_limit:
 								if not appended:
 									qs.append(jv)
 									qm.append(jm)
@@ -408,7 +409,10 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
 		jin = update_bions(jin,_b_mods)
 	if _y_mods:
 		jin = update_yions(jin,_y_mods)
+#	dm = jin['pm'] - 400000
 	ms = jin['bs']+jin['ys']
+#	ms += [m/2 for m in jin['bs'] if m > 800000 and m > dm]
+#	ms += [m/2 for m in jin['ys'] if m > 800000 and m > dm]
 #	ms.sort()
 	ms = [int(0.5+i/_fres) for i in ms]
 	v = []

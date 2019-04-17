@@ -28,7 +28,7 @@ def perform_ids(_s,_k,_list,_param):
 	a = 0
 	ires = float(_param['fragment mass tolerance'])
 	score = 0
-	best_score = 5
+	b_score = 5
 #
 #	indicate progress to user
 #
@@ -59,7 +59,7 @@ def perform_ids(_s,_k,_list,_param):
 #		initialize spectrum variables
 #
 		ks = _list[a]
-		best_score = 5
+		best_score = b_score
 		ident = []
 #		sps = s['ms']
 #		tps = []

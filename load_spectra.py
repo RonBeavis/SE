@@ -49,21 +49,22 @@ def load_jsms(_in,_param):
 	else:
 		f = open(_in,'r',encoding = 'utf8')
 	proton = 1.007276
+	res = float(_param['fragment mass tolerance'])
 	for l in f:
 		js = ujson.loads(l)
-		if 'lv' in js and 'pz' in js:
+		if 'lv' in js and 'pz' in js and js['pm']*js['pz'] > 600:
 			js['pm'] = int(0.5+1000*(js['pm']*js['pz']-proton*js['pz']))
 			ms = js['ms']
 			vs = []
 			for m in ms:
 				vs.append(int(0.5 + 1000*(m-proton),0))
 			js['ms'] = vs
+			js = clean_one(js,50,res)
 			sp.append(js)
 			if len(sp) % 10000 == 0:
 				print('.',end='')
 				sys.stdout.flush()
 	f.close()
-	sp = clean_up(sp,50,float(_param['fragment mass tolerance']))
 	return sp
 #
 # MGF parser
@@ -73,7 +74,7 @@ def load_mgf(_in,_param):
 		ifile = gzip.open(_in,'rt')
 	else:
 		ifile = open(_in,'r')
-	s = 0
+	s = 1
 	js = {}
 	sp = []
 	Ms = []
@@ -85,9 +86,10 @@ def load_mgf(_in,_param):
 	print('.',end='')
 	sys.stdout.flush()
 	digit = set(['1','2','3','4','5','6','7','8','9'])
+	res = float(_param['fragment mass tolerance'])
 	for line in ifile:
 		fl = line[:1]
-		if fl in digit:
+		if amIn and fl in digit:
 			vs = line.split(' ')
 			if len(vs) < 2 or len(vs) > 3:
 				continue
@@ -103,13 +105,10 @@ def load_mgf(_in,_param):
 				ts = [0 for x in range(1000)]
 				Ms.extend(ts)
 				Is.extend(ts)
-#			Ms.append(m)
-#			Is.append(i)
 			Ms[MsPos] = m
 			Is[MsPos] = i
 			MsPos += 1
 			continue
-#		line.rstrip()
 		gr = re.match('([\w ]+)',line)
 		if not gr:
 			continue
@@ -123,11 +122,13 @@ def load_mgf(_in,_param):
 		elif amIn == 0:
 			continue
 		elif tag == 'END IONS':
-			js['np'] = len(Ms)
-			js['pm'] = int(0.5 + 1000*(js['pm']*js['pz']-proton*js['pz']))
-			js['ms'] = Ms[:MsPos]
-			js['is'] = Is[:MsPos]
-			sp.append(js)
+			if js['pm']*js['pz'] > 600:
+				js['np'] = len(Ms)
+				js['pm'] = int(0.5 + 1000*(js['pm']*js['pz']-proton*js['pz']))
+				js['ms'] = Ms[:MsPos]
+				js['is'] = Is[:MsPos]
+				jc = clean_one(js,50,res)
+				sp.append(jc)
 			if len(sp) % 10000 == 0:
 				print('.',end='')
 				sys.stdout.flush()
@@ -158,7 +159,6 @@ def load_mgf(_in,_param):
 				js['sc'] = int(re.sub('.+scan\=','',line))
 			else:
 				js['sc'] = s+1
-	sp = clean_up(sp,50,float(_param['fragment mass tolerance']))
 	return sp
 #
 #	mzML parser
@@ -185,9 +185,73 @@ class mzMLHandler(xml.sax.ContentHandler):
 		self.spectra = []
 		self.n = 0
 		self.proton = 1.007276
+		self.res = 10
 	
 	def getSpectra(self):
 		return self.spectra	
+	def setRes(self,_r):
+		self.res = _r
+		return self.res
+	def cleanOne(self):
+		s = self.jsms
+		l = 50
+		ires = self.res
+		a = 0
+		i_max = 0
+		pm = s['pm']
+		pz = s['pz']
+		for i in s['is']:
+			m = s['ms'][a]
+			if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
+				a += 1
+				continue
+			if i > i_max:
+				i_max = i
+			a += 1
+		sMs = []
+		sIs = []
+		a = 0
+		i_max /= 100
+		for m in s['ms']:
+			if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
+				a += 1
+				continue
+			if s['is'][a]/i_max > 1.0:
+				i = s['is'][a]/i_max
+				if sMs:
+					if abs(sMs[-1] - m) < 500:
+						if sIs[-1] < i:
+							del sMs[-1]
+							del sIs[-1]
+							sMs.append(m)
+							sIs.append(i)
+					else:
+						sMs.append(m)
+						sIs.append(i)
+				else:
+					sMs.append(m)
+					sIs.append(i)
+			a += 1
+		sMs = [x for _,x in sorted(zip(sIs,sMs), key=lambda pair: pair[0],reverse = True)]
+		sIs.sort(reverse = True)
+		sMs = sMs[:l]
+		sIs = sIs[:l]
+		sIs = [x for _,x in sorted(zip(sMs,sIs), key=lambda pair: pair[0])]
+		sMs.sort()
+		s.pop('ms')
+		s.pop('is')
+		tps = []
+#
+#		generate a normalized set of spectrum masses
+#
+		for m in sMs:
+			val = int(0.5+m/ires)
+			tps.append(val)
+			tps.append(val-1)
+			tps.append(val+1)
+		s['sms'] = tps
+		return s
+
 	def startElement(self, tag, attrs):
 		self.cTag = tag
 		if tag == 'spectrum':
@@ -257,13 +321,15 @@ class mzMLHandler(xml.sax.ContentHandler):
 					if 'zs' in self.jsms:
 						Zs.append(self.jsms['zs'][a])
 					a += 1
-				self.jsms['ms'] = Ms
-				self.jsms['is'] = Is
-				self.jsms['pm'] = int(0.5 + 1000*(self.jsms['pm']*self.jsms['pz']-self.proton*self.jsms['pz']))
-				if 'zs' in self.jsms:
-					self.jsms['zs'] = Zs
-				self.jsms['np'] = len(Ms)
-				self.spectra.append(self.jsms)
+				if self.jsms['pm']*self.jsms['pz'] > 600:
+					self.jsms['ms'] = Ms
+					self.jsms['is'] = Is
+					self.jsms['pm'] = int(0.5 + 1000*(self.jsms['pm']*self.jsms['pz']-self.proton*self.jsms['pz']))
+					if 'zs' in self.jsms:
+						self.jsms['zs'] = Zs
+					self.jsms['np'] = len(Ms)
+					sp = self.cleanOne()
+					self.spectra.append(sp)
 				self.n += 1
 				if self.n % 10000 == 0:
 					print('.',end='',flush=True)
@@ -328,48 +394,71 @@ class mzMLHandler(xml.sax.ContentHandler):
 
 def load_mzml(_in,_param):
 	fpath = _in
+	res = float(_param['fragment mass tolerance'])
 	parser = xml.sax.make_parser()
 	parser.setContentHandler(mzMLHandler())
+	parser.getContentHandler().setRes(res)
 	parser.parse(open(fpath,"r"))
 	sp = parser.getContentHandler().getSpectra()
-	clean_up(sp,50,float(_param['fragment mass tolerance']))
 	return sp
 
-#
-# cleans up spectra to conform to search engine requirements
-#
-
-def clean_up(_sp,l,ires):
-	sp = _sp
+def clean_one(_sp,_l,_ires):
+	s = _sp.copy()
 	a = 0
-	deleted = 0
-	for s in sp:
-		sMs = [x for _,x in sorted(zip(s['is'],s['ms']),reverse = True)]
-		sIs = s['is']
-		sIs.sort(reverse = True)
-		sMs = sMs[:l]
-		sIs = sIs[:l]
-		minI = sIs[0]/100
-		while sIs[-1] < minI and len(sMs) > 0:
-			sMs.pop(-1)
-			sIs.pop(-1)
-			deleted += 1
-#		sIs = [x for _,x in sorted(zip(sMs,sIs))]
-#		sMs.sort()
-#		sp[a]['ms'] = sMs
-#		sp[a]['is'] = sIs
-		sp[a].pop('ms')
-		sp[a].pop('is')
-		tps = []
+	i_max = 0
+	pm = s['pm']
+	pz = s['pz']
+	for i in s['is']:
+		m = s['ms'][a]
+		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
+			a += 1
+			continue
+		if i > i_max:
+			i_max = i
+		a += 1
+	sMs = []
+	sIs = []
+	a = 0
+	i_max /= 100
+	for m in s['ms']:
+		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
+			a += 1
+			continue
+		if s['is'][a]/i_max > 1.0:
+			i = s['is'][a]/i_max
+			if sMs:
+				if abs(sMs[-1] - m) < 500:
+					if sIs[-1] < i:
+						del sMs[-1]
+						del sIs[-1]
+						sMs.append(m)
+						sIs.append(i)
+				else:
+					sMs.append(m)
+					sIs.append(i)
+			else:
+				sMs.append(m)
+				sIs.append(i)
+		a += 1
+	sMs = [x for _,x in sorted(zip(sIs,sMs), key=lambda pair: pair[0],reverse = True)]
+	sIs.sort(reverse = True)
+	sMs = sMs[:_l]
+	sIs = sIs[:_l]
+	sIs = [x for _,x in sorted(zip(sMs,sIs), key=lambda pair: pair[0])]
+	sMs.sort()
+#	sp[a]['ms'] = sMs
+#	sp[a]['is'] = sIs
+	s.pop('ms')
+	s.pop('is')
+	tps = []
 #
 #		generate a normalized set of spectrum masses
 #
-		for s in sMs:
-			val = int(0.5+s/ires)
-			tps.append(val)
-			tps.append(val-1)
-			tps.append(val+1)
-		sp[a]['sms'] = tps
-		a += 1
-	return sp
+	for m in sMs:
+		val = int(0.5+m/_ires)
+		tps.append(val)
+		tps.append(val-1)
+		tps.append(val+1)
+	s['sms'] = tps
+	return s
 

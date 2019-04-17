@@ -38,7 +38,7 @@ def main():
 	sfs = params['spectra file'].split(',')
 	for sf in sfs:
 		spectra += load_spectra(sf,params)
-	job_stats['S-dimension'] = len(spectra)
+	job_stats['Spectra'] = len(spectra)
 #
 #	load kernels from files, using command line specified list
 #
@@ -67,7 +67,7 @@ def main():
 			else:
 				spectrum_list[s] = s_list[s]
 		k += k1
-	job_stats['K-dimension'] = k
+	job_stats['Kernels'] = k
 	job_stats['KS-intersection'] = len(kernel)
 	delta = time.time()-start
 	job_stats['Load time kernel'] = delta

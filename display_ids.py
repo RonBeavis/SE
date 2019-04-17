@@ -15,6 +15,8 @@ import re
 import json
 import hashlib
 import statistics
+import scipy.stats
+import math
 
 modifications =	{ 15995:'oxidation',57021:'carbamidomethyl',42011:'acetyl',31990:'dioxidation',
 		28031:'dimethyl',14016:'methyl',984:'deamidation',43006:'carbamyl',79966:'phosphoryl',
@@ -103,12 +105,22 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	psm = 1
 	z_list = {}
 	ptm_list = {}
+	ptm_aaa = {}
 	parent_delta = []
 	parent_delta_ppm = []
 	parent_a = [0,0]
+	pscore = 0.0
+	pscore_min = 200.0
+	vresults = 0
+	res = _params['fragment mass tolerance']
+	sfactor = 20
+	if res > 100:
+		sfactor = 35
 	for j in _ids:
+		pscore = 0.0
 		rt = ''
 		scan = ''
+		line = '-----------------------------------------------------------------------'
 		if 'rt' in _spectra[j]:
 			rt = '%.1f' % _spectra[j]['rt']
 		if 'sc' in _spectra[j]:
@@ -121,7 +133,24 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 			psm += 1
 		else:
 			sline = (json.dumps(_spectra[j])).encode()
+			vresults = 0
+			pscore = 0.0
+			line = '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 			for i in _ids[j]:
+				kern = _kernel[i]
+				lseq = list(kern[ko['seq']])
+				pmass = int(kern[ko['pm']]/1000)
+				cells = int(pmass-200)
+				total_ions = 2*(len(lseq) - 1)
+				if total_ions > sfactor:
+					total_ions = sfactor
+				if total_ions < _scores[j]:
+					total_ions = _scores[j] + 1
+				rv = scipy.stats.hypergeom(cells,total_ions,len(_spectra[j]['sms'])/3)
+				p = rv.pmf(_scores[j])
+				pscore = -100.0*math.log10(p)
+				if pscore < pscore_min and valid_only:
+					break
 				valid_ids += 1
 				z = _spectra[j]['pz']
 				if z in z_list:
@@ -129,31 +158,45 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 				else:
 					z_list[z] = 1
 				mhash = hashlib.sha256()
-				kern = _kernel[i]
 				lb = kern[ko['lb']]
 				if lb.find('-rev') != -1:
 					lb = '-rev'
 				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
 				psm += 1
 				line += '%i\t%i\t%s\t%s\t%s\t' % (kern[ko['beg']],kern[ko['end']],kern[ko['pre']],kern[ko['seq']],kern[ko['post']])
-				lseq = list(kern[ko['seq']])
 				for k in kern[ko['mods']]:
 					for c in k:
 						if k[c] in modifications:
+							aa = lseq[int(c)-int(kern[ko['beg']])]
 							ptm = modifications[k[c]]
 							if ptm in ptm_list:
 								ptm_list[ptm] += 1
 							else:
 								ptm_list[ptm] = 1
+							if ptm in ptm_aaa:
+								if aa in ptm_aaa[ptm]:
+									ptm_aaa[ptm][aa] += 1
+								else:
+									ptm_aaa[ptm].update({aa:1})
+							else:
+								ptm_aaa[ptm] = {aa:1}
 
-							line += '%s%s+%s;' % (lseq[int(c)-int(kern[ko['beg']])],c,modifications[k[c]])
+							line += '%s%s+%s;' % (aa,c,modifications[k[c]])
 						else:
 							ptm = '%.3f' % float(k[c])/1000.0
+							aa = lseq[int(c)-int(kern[ko['beg']])]
 							if ptm in ptm_list:
 								ptm_list[ptm] += 1
 							else:
 								ptm_list[ptm] = 1
-							line += '%s%s#%.3f;' % (lseq[int(c)-int(kern[ko['beg']])],c,float(k[c])/1000)
+							if ptm in ptm_aaa:
+								if aa in ptm_aaa[ptm]:
+									ptm_aaa[ptm][aa] += 1
+								else:
+									ptm_aaa[ptm].update({aa:1})
+							else:
+								ptm_aaa[ptm] = {aa:1}
+							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
 				delta = _spectra[j]['pm']-kern[ko['pm']]
 				ppm = 1e6*delta/kern[ko['pm']]
 				if delta/1000.0 > 0.9:
@@ -164,13 +207,12 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 					parent_a[0] += 1
 					parent_delta.append(delta/1000.0)
 					parent_delta_ppm.append(ppm)
-
-				line += '\t%i\t%i\t%.3f\t%i' % (_scores[j],100.0*_scores[j]/float(len(kern[ko['seq']])),delta/1000.0,round(ppm,0))
+				line += '\t%i\t%.0f\t%.3f\t%i' % (_scores[j],pscore,delta/1000,round(ppm,0))
 				mhash.update(sline+(json.dumps(kern)).encode())
 				if use_bcid:
 					line += '\t%s' % (mhash.hexdigest())
 				line += '\n'
-		ofile.write(line)
+				ofile.write(line)
 	ofile.close()
 	print('\n3. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
@@ -180,7 +222,10 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 		print('        %i: %i' % (z,z_list[z]))
 	print('    modifications:')
 	for ptm in sorted(ptm_list, key=lambda s: s.casefold()):
-		print('        %s: %i' % (ptm,ptm_list[ptm]))
+		aa_line = ''
+		for aa in sorted(ptm_aaa[ptm]):
+			aa_line += '%s[%i] ' % (aa,ptm_aaa[ptm][aa])
+		print('        %s: %s= %i' % (ptm,aa_line,ptm_list[ptm]))
 	print('    parent delta mean (Da): %.3f' % (statistics.mean(parent_delta)))
 	print('    parent delta sd (Da): %.3f' % (statistics.stdev(parent_delta)))
 	print('    parent delta mean (ppm): %.1f' % (statistics.mean(parent_delta_ppm)))
