@@ -1,1 +1,1 @@
-This folder contains files necessary for Cython
+This folder contains files necessary for Cython.
