@@ -10,6 +10,8 @@
 #
 # some handy lists of masses, in integer milliDaltons
 #
+#from __future__ import print_function
+#from libcpp cimport bool as bool_t
 
 import re
 import json
@@ -18,17 +20,36 @@ import statistics
 import scipy.stats
 import math
 
-modifications =	{ 15995:'oxidation',57021:'carbamidomethyl',42011:'acetyl',31990:'dioxidation',
-		28031:'dimethyl',14016:'methyl',984:'deamidation',43006:'carbamyl',79966:'phosphoryl',
-		-17027:'ammonia-loss',-18011:'water-loss',6020:'Label:+6 Da',
+#
+# retrieves a list of modification masses and names for use in displays
+# if 'common_mods_md.txt' is not available, a warning is thrown and a default
+# list is used
+#
+def get_modifications():
+	try:
+		f = open('common_mods_md.txt','r')
+	except:
+		print('Warning: common_mods_md.txt is not available so default values used')
+		return { 15995:'Oxidation',57021:'Carbamidomethyl',42011:'Acetyl',31990:'Dioxidation',
+		28031:'Dimethyl',14016:'Methyl',984:'Deamidation',43006:'Carbamyl',79966:'Phosphoryl',
+		-17027:'Ammonia-loss',-18011:'Water-loss',6020:'Label:+6 Da',
 		10008:'Label:+10 Da',8014:'Label:+8 Da',4025:'Label:+4 Da'}
-
+	mods = {}
+	for l in f:
+		l = l.strip()
+		vs = l.split('\t')
+		if len(vs) < 2:
+			continue
+		mods[int(vs[0])] = vs[1]
+	f.close()
+	return mods
 #
 # generates a simple terminal display for the results of a job
 #
 
 def simple_display(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	ko = _params['kernel order'].copy()
+	modifications = get_modifications()
 	print('\n1. Identifications:')
 	valid_ids = 0
 	for j in _ids:
@@ -74,7 +95,9 @@ def simple_display(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 
 def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	ko = _params['kernel order'].copy()
+	modifications = get_modifications()
 	proton = 1.007276
+	outfile = _params['output file']
 	print('\n1. Input parameters:')
 	for j in sorted(_params,reverse=True):
 		if j == 'kernel order':
@@ -86,9 +109,9 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 			print('    %s: %s' % (j,str(_job_stats[j])))
 		else:
 			print('    %s: %.3f s' % (j,_job_stats[j]))
-	ofile = open(_params['output file'],'w')
+	ofile = open(outfile,'w')
 	if not ofile:
-		print('Error: specified output file "%s" could not be opened\n       nothing written to file' % (_of))
+		print('Error: specified output file "%s" could not be opened\n       nothing written to file' % (outfile))
 		return False
 	valid_only = False
 	if 'output valid only' in _params:

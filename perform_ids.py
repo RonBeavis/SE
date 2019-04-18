@@ -7,6 +7,8 @@
 # performs peptide-spectrum matches, based on the pre-loaded spectra
 # and kernel
 #
+#from __future__ import print_function
+#from libcpp cimport bool as bool_t
 
 import sys
 

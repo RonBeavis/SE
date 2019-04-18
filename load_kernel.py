@@ -11,6 +11,8 @@
 # uncomment bisect to use the alternate spectrum indexing methods
 # create_index_b and get_spectra_b
 #import bisect 
+#from __future__ import print_function
+#from libcpp cimport bool as bool_t
 
 import ujson
 #import json
@@ -19,16 +21,25 @@ import gzip
 import sys
 import itertools
 #
-# some handy lists of masses, in integer milliDaltons
+# method to import a list of isotopic masses necessary to do some of the calculations.
+# if 'isotopes.txt' is not available, a warning is thrown and a default list is used.
 #
-
-modifications =	{ 'oxidation':15995,'carbamidomethyl':57021,'acetyl':42011,'dioxidation':31990,
-		 'deamidation':984, 'carbamyl':43006,'phosphoryl':79966 }
-isotopes =	{ 'p':1.007276,'H1':1.007825,'H2':2.014102,'C12':12.0,'C13':13.003355,'N14':14.003074,
-		 'O16':15.994915,'S32':31.972072 }
-amino_acids =	{ 'A':71037,'R':156101,'N':114043,'D':115027,'C':103009,'E':129043,'Q':128059,'G':57021,
-		 'H':137059,'I':113084,'L':113084,'K':128095,'M':131040,'F':147068,'P':97053,'S':87032,
-		 'T':101048,'U':150954,'W':186079,'Y':163063,'V':99068 }
+def load_isotopes():
+	try:
+		f = open('isotopes.txt','r')
+	except:
+		print('Warning: isotopes.txt is not available so default values used')
+		return { 'p':1.007276,'1H':1.007825,'2H':2.014102,'12C':12.0,'13C':13.003355,'14N':14.003074,
+		 	'16O':15.994915,'32S':31.972072 }
+	iso = {}
+	for l in f:
+		l = l.strip()
+		vs = l.split('\t')
+		if len(vs) < 2:
+			continue
+		iso[vs[0]] = float(vs[1])
+	f.close()
+	return iso
 #
 # method to generate a list of kernels that are potential matches for the input list of spectra (_s)
 # the kernels are read from a file (_f) and a set of parameters (_param) govern the way that
@@ -37,6 +48,7 @@ amino_acids =	{ 'A':71037,'R':156101,'N':114043,'D':115027,'C':103009,'E':129043
 #
 
 def load_kernel(_f,_s,_param,_qi):
+	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
 		f = gzip.open(_f,'rt', encoding='utf-8')
 	else:
@@ -71,7 +83,7 @@ def load_kernel(_f,_s,_param,_qi):
 	use_c13 = True
 	if 'c13' in _param:
 		use_c13 = _param.get('c13')
-	acetyl = modifications.get('acetyl')
+	acetyl = 42011
 	p_mods = {}
 	v_mods = {}
 	if 'mods p' in _param:
@@ -81,9 +93,9 @@ def load_kernel(_f,_s,_param,_qi):
 #
 # 	create local variables for specific masses
 #
-	ammonia = normalize(isotopes.get('N14') + 3*isotopes.get('H1'))
-	water = normalize(isotopes.get('O16') + 2*isotopes.get('H1'))
-	c13 = normalize(isotopes.get('C13') - isotopes.get('C12'))
+	ammonia = normalize(isotopes.get('14N') + 3*isotopes.get('1H'))
+	water = normalize(isotopes.get('16O') + 2*isotopes.get('1H'))
+	c13 = normalize(isotopes.get('13C') - isotopes.get('12C'))
 #
 # 	initialize some variable outside of the main iteration
 #

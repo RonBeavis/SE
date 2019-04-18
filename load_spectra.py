@@ -5,6 +5,8 @@
 #
 # loads an array with spectra obtained from named data files
 #
+#from __future__ import print_function
+#from libcpp cimport bool as bool_t
 
 import gzip
 import ujson
