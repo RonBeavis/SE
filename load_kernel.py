@@ -181,6 +181,12 @@ def load_kernel(_f,_s,_param,_qi):
 		water_loss = False
 		if nt_water and n_term == 'E':
 			water_loss = True
+#
+#		Make copies of the arrays in js_master
+#
+		js_bs = list(js_master['bs'])
+		js_ys = list(js_master['ys'])
+		js_pm = js_master['pm']
 		for vp in v_stack:
 			lp = 0
 			vs_pos = vp[0]
@@ -197,9 +203,11 @@ def load_kernel(_f,_s,_param,_qi):
 				p_total = lp_total[lp]+vs_total
 				tmass = pm+p_total
 				slots = []
+				ok_c13 = False
 				if use_c13 and tmass > 1500000:
 					slots = [c13]
 					pms = get_spectra(s_index,tmass,ires,True,slots)
+					ok_c13 = True
 				else:
 					pms = get_spectra(s_index,tmass,ires,False,slots)
 				appended = False
@@ -207,10 +215,16 @@ def load_kernel(_f,_s,_param,_qi):
 				jc = None
 				for s in pms:
 					delta = s_masses[s]-tmass
-					if abs(delta) < res or abs(delta-c13) < res:
+					if abs(delta) < res or (ok_c13 and abs(delta-c13) < res):
 						if jv is None:
-							js_temp = copy.deepcopy(js_master)
-							(jv,jm) = load_json(js_temp,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+							(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+#
+#							replace arrays in js_master
+#
+							js_master['bs'] = list(js_bs)
+							js_master['ys'] = list(js_ys)
+							js_master['pm'] = js_pm
+							js_master['mods'] = []
 						sms = sms_list[s]
 						c = 0
 						for k in jm:
@@ -235,21 +249,29 @@ def load_kernel(_f,_s,_param,_qi):
 					y_mods = []
 					tmass = pm+p_total+acetyl
 					slots = []
+					ok_c13 = False
 					if use_c13 and tmass > 1500000:
 						slots = [c13]
 						pms = get_spectra(s_index,tmass,ires,True,slots)
+						ok_c13 = True
 					else:
 						pms = get_spectra(s_index,tmass,ires,False,slots)
 					jv = None
 					jc = None
 					for s in pms:
 						delta = s_masses[s]-pm-p_total
-						if abs(delta-acetyl) < res or abs(delta-acetyl-c13) < res:
+						if abs(delta-acetyl) < res or (ok_c13 and abs(delta-acetyl-c13) < res):
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if jv is None:
-								js_temp = copy.deepcopy(js_master)
-								(jv,jm) = load_json(js_temp,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+								(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+#
+#								replace arrays in js_master
+#
+								js_master['bs'] = list(js_bs)
+								js_master['ys'] = list(js_ys)
+								js_master['pm'] = js_pm
+								js_master['mods'] = []
 							sms = sms_list[s]
 							c = 0
 							for k in jm:
@@ -275,21 +297,29 @@ def load_kernel(_f,_s,_param,_qi):
 						dvalue = water
 					tmass = pm+p_total-dvalue
 					slots = []
+					ok_c13 = False
 					if use_c13 and tmass > 1500000:
 						slots = [c13]
 						pms = get_spectra(s_index,tmass,ires,True,slots)
+						ok_c13= True
 					else:
 						pms = get_spectra(s_index,tmass,ires,False,slots)
 					jv = None
 					jc = None
 					for s in pms:
 						delta = s_masses[s]-pm-p_total
-						if abs(delta+dvalue) < res or abs(delta+dvalue-c13) < res:
+						if abs(delta+dvalue) < res or (ok_c13 and abs(delta+dvalue-c13) < res):
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if jv is None:
-								js_temp = copy.deepcopy(js_master)
-								(jv,jm) = load_json(js_temp,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+								(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+#
+#								replace arrays in js_master
+#
+								js_master['bs'] = list(js_bs)
+								js_master['ys'] = list(js_ys)
+								js_master['pm'] = js_pm
+								js_master['mods'] = []
 							sms = sms_list[s]
 							c = 0
 							for k in jm:
