@@ -52,6 +52,8 @@ def load_params(_argv):
 	params = {}
 	ret = True
 	help = False
+	additional_spectra = ''
+	additional_kernels = ''
 	for v in _argv:
 		u = v[2:]
 		if v.find('-c') == 0:
@@ -63,6 +65,10 @@ def load_params(_argv):
 			params['kernel file'] = u
 		if v.find('-s') == 0:
 			params['spectra file'] = u
+		if v.find('-K') == 0:
+			additional_kernels = u
+		if v.find('-S') == 0:
+			additional_spectra = u
 		if v.find('-o') == 0:
 			params['output file'] = u
 		if v.find('-d') == 0:
@@ -92,9 +98,11 @@ def load_params(_argv):
 		   -f: fragment mass tolerance in mDa (400)
 	           -h: show the help list
 	           -k: proteome kernel file list
+		   -K: additional proteome kernel file list
 		   -o: output file (tsv)
 		   -p: parent mass tolerance in mDa (20)
-		   -s: spectrum file list (JSMS, MGF)
+		   -s: spectrum file list (JSMS, MGF, mzML)
+		   -S: additional spectrum file list (JSMS, MGF,mzML)
 ''')
 		return (params,False)
 #
@@ -147,5 +155,16 @@ def load_params(_argv):
 			params[p] = para_min[p]
 	if ret:
 		print('.')
+	if 'kernel file' in params:
+		if len(additional_kernels) > 0:
+			params['kernel file'] += ',%s' % additional_kernels
+	elif len(additional_kernels) > 0:
+		params['kernel file'] = '%s' % additional_kernels
+
+	if 'spectra file' in params:
+		if len(additional_spectra) > 0:
+			params['spectra file'] += ',%s' % additional_spectra
+	elif len(additional_spectra) > 0:
+		params['spectra file'] += '%s' % additional_spectra
 	return (params,ret)
 

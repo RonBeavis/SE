@@ -21,7 +21,7 @@ for l in f:
 	l.rstrip()
 	vs = l.split('\t')
 	brev = False
-	if vs[6].find('rev-') == 0:
+	if vs[6].find('decoy-') == 0:
 		brev = True
 	score = int(50*int(float(vs[14])/50))
 	count = int(vs[13])
@@ -45,7 +45,7 @@ for l in f:
 			count_tally[count] += 1
 		else:
 			count_tally[count] = 1
-print('scores\treversed\tforward')
+print('scores\tdecoy\ttarget\ts decoy\ts target')
 a_score_tally = {}
 rev_a_score_tally = {}
 for sc in sorted(scores):
@@ -94,7 +94,7 @@ for sc in sorted(scores):
 		line += '-\t'
 	line += '%.3f'% (100*float(rev_a_score_tally[sc])/float(rev_a_score_tally[sc]+a_score_tally[sc]))
 	print(line)
-print('counts\treversed\tforward')
+print('counts\treversed\tforward\ts decoy\ts target')
 for sc in sorted(counts):
 	rev = 0
 	forward = 0

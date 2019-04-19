@@ -162,10 +162,21 @@ def load_kernel(_f,_s,_param,_qi):
 #
 # 		check for special case peptide N-terminal cyclization at Q, C or E
 #
+		isIaa = []
+		for v in p_mods:
+			if v == 'C':
+				for p in p_mods[v]:
+					if p == 57021:
+						isIaa.append(True)
+					else:
+						isIaa.append(False)
 		n_term = seq[:1]
-		ammonia_loss = False
-		if nt_ammonia and (n_term == 'Q' or n_term == 'C'):
-			ammonia_loss = True
+		q_ammonia_loss = False
+		c_ammonia_loss = False
+		if nt_ammonia and n_term == 'Q':
+			q_ammonia_loss = True
+		if nt_ammonia and n_term == 'C':
+			c_ammonia_loss = True
 		water_loss = False
 		if nt_water and n_term == 'E':
 			water_loss = True
@@ -174,6 +185,11 @@ def load_kernel(_f,_s,_param,_qi):
 			vs_pos = vp[0]
 			vs_total= vp[1]
 			for lp in range(lp_len):
+				bIaa = False
+				if 'C' in p_mods:
+					bIaa = isIaa[lp]
+				if c_ammonia_loss and not bIaa:
+					c_ammonia_loss = False
 				b_mods = []
 				y_mods = []
 				p_pos = lp_pos[lp]
@@ -246,7 +262,7 @@ def load_kernel(_f,_s,_param,_qi):
 				if appended:
 					qn += 1
 				appended = False
-				if ammonia_loss or water_loss:
+				if q_ammonia_loss or c_ammonia_loss or water_loss:
 					b_mods = []
 					y_mods = []
 					dvalue = ammonia

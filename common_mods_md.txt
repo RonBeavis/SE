@@ -50,7 +50,6 @@
 36046	Dimethyl:+8 Da
 37956	Cation:K
 42011	Acetyl
-42000	Acetyl
 42022	Guanidinyl
 42047	Trimethyl
 43006	Carbamyl
@@ -60,7 +59,6 @@
 47985	Trioxidation
 47036	Acetyl:+5 Da
 47944	Delta:S(-1)Se(1)
-47945	Delta:S(-1)Se(1)
 53919	Cation:Fe(II)
 54114	Trimethyl:+12 Da
 56026	Propionyl
@@ -70,9 +68,7 @@
 59036	Propionyl:+3 Da
 68063	Piperidine
 68037	IMID
-68038	IMID
 72063	IMID:+2 Da
-70040	Crotonaldehyde
 70042	Crotonaldehyde
 71037	Propionamide
 72021	Carboxyethyl
@@ -87,22 +83,18 @@
 87998	Thioacyl
 100016	Succinyl
 104029	Succinyl:+4 Da
-104030	Succinyl:+4 Da
 104041	Succinyl:+4 Da
 105021	ICPL
 105058	Pyridylethyl
 109047	ICPL:2H(4)
 111042	ICPL:13C(6)
-125048	Nethylmaleimide
 113084	H(11)C(6)NO
-120101	H(11)C(6)NO:+7 Da
 114043	GlyGly
 119004	Cysteinyl
+120101	H(11)C(6)NO:+7 Da
+125048	Nethylmaleimide
 125897	Iodo
 130079	d(5)Nethylmaleimide
-251793	Diiodo
-377690	Triiodo
-595613	Tetraiodo
 144102	iTRAQ
 140095	mTRAQ
 148109	mTRAQ:+8Da
@@ -117,13 +109,15 @@
 227127	ICAT-C
 229014	PyridoxalPhosphate
 229163	TMT6plex
-304205	iTRAQ8plex
+251793	Diiodo
 299167	cysTMT
+304205	iTRAQ8plex
 304177	cysTMT6plex
 333169	DTH
 339207	DTH:+6Da
 361146	Biotin-Phenol
 365132	Hex-HexNAc
+377690	Triiodo
 383228	LRGG
 396084	Bacillithiol
 414194	PEO-Biotin
@@ -134,4 +128,5 @@
 521307	ABPP
 527321	ABPP:+6Da
 572181	TMPP-Ac
+595613	Tetraiodo
 
