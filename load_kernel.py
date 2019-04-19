@@ -20,6 +20,7 @@ import re
 import gzip
 import sys
 import itertools
+import copy
 #
 # method to import a list of isotopic masses necessary to do some of the calculations.
 # if 'isotopes.txt' is not available, a warning is thrown and a default list is used.
@@ -208,8 +209,8 @@ def load_kernel(_f,_s,_param,_qi):
 					delta = s_masses[s]-tmass
 					if abs(delta) < res or abs(delta-c13) < res:
 						if jv is None:
-							(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
-#						score = score_id(_s[s]['sms'],jm)
+							js_temp = copy.deepcopy(js_master)
+							(jv,jm) = load_json(js_temp,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 						sms = sms_list[s]
 						c = 0
 						for k in jm:
@@ -226,6 +227,9 @@ def load_kernel(_f,_s,_param,_qi):
 				if appended:
 					qn += 1
 				appended = False
+				if '[' in p_mods:
+					if p_mods['['][lp] != 0:
+						continue
 				if beg < 4:
 					b_mods = []
 					y_mods = []
@@ -244,7 +248,8 @@ def load_kernel(_f,_s,_param,_qi):
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if jv is None:
-								(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+								js_temp = copy.deepcopy(js_master)
+								(jv,jm) = load_json(js_temp,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 							sms = sms_list[s]
 							c = 0
 							for k in jm:
@@ -283,7 +288,8 @@ def load_kernel(_f,_s,_param,_qi):
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if jv is None:
-								(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+								js_temp = copy.deepcopy(js_master)
+								(jv,jm) = load_json(js_temp,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 							sms = sms_list[s]
 							c = 0
 							for k in jm:
@@ -300,7 +306,6 @@ def load_kernel(_f,_s,_param,_qi):
 
 				if appended:
 					qn += 1
-				js_base = None
 
 		t += 1
 	return (qs,qm,spectrum_list,t,qn,kernel_order)
@@ -407,9 +412,11 @@ def generate_lpstack(_mods,_seq):
 			if p == '[' and pms[lp] != 0:
 				p_pos[p] = [0]
 				p_total += pms[lp]
+				keep = True
 			elif p == ']' and pms[lp] != 0:
 				p_pos[p] = [ls-1]
 				p_total += pms[lp]
+				keep = True
 			elif _seq.find(p) != -1 and pms[lp] != 0:
 				p_pos[p] = [x for x, y in enumerate(_seq) if y == p]
 				p_total += len(p_pos[p])*pms[lp]
@@ -427,7 +434,7 @@ def generate_lpstack(_mods,_seq):
 #
 
 def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
-	jin = _l.copy()
+	jin = _l
 	jin['mods'] = []
 	if _p_pos:
 		jin = update_ions(jin,_p_mods,_p_pos,_lp)
@@ -457,9 +464,9 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
 # _lp - the position in _pos
 #
 def update_ions(_js,_mods,_pos,_lp):
-	jin = _js.copy()
+	jin = _js
 	t = len(jin['bs'])
-	mods = {}
+	mod_tuples = []
 	tmod = 0.0
 	beg = jin['beg']
 	for m in _mods:
@@ -470,14 +477,14 @@ def update_ions(_js,_mods,_pos,_lp):
 		pmod = _mods[m][_lp]
 		for a in range(t):
 			if a in _pos[m]:
-				mods[beg+a] = pmod
+				mod_tuples.append((beg+a,pmod))
 				tmod += pmod
 				delta += pmod
 			if delta == 0:
 				continue
 			jin['bs'][a] += delta
 		if t in _pos[m]:
-			mods[beg+t] = pmod
+			mod_tuples.append((beg+t,pmod))
 			tmod += pmod
 		a = 0
 		delta = 0
@@ -487,7 +494,8 @@ def update_ions(_js,_mods,_pos,_lp):
 			if delta == 0:
 				continue
 			jin['ys'][a] += delta
-	jin['mods'].append(mods)
+	for tup in mod_tuples:
+		jin['mods'].append({tup[0]:tup[1]})
 	jin['pm'] += tmod
 	return jin
 
@@ -501,29 +509,33 @@ def update_ions(_js,_mods,_pos,_lp):
 #       debugging
 #
 def update_bions(_js,_bmods):
-	js = _js.copy()
+	js = _js
 	t = len(js['bs'])
 	mods = {}
 	beg = js['beg']
+	mod_tuples = []
 	for b in _bmods:
 		js['pm'] += b
-		mods[beg] = b
+		mod_tuples.append((beg,b))
 		for a in range(t):
 			js['bs'][a] += b
-	js['mods'].append(mods)
+	for tup in mod_tuples:
+		js['mods'].append({tup[0]:tup[1]})
 	return js
 
 def update_yions(_js,_ymods):
-	js = _js.copy()
+	js = _js
 	t = len(js['ys'])
 	mods = {}
 	end = js['end']
+	mod_tuples = []
 	for b in _ymods:
 		js['pm'] += b
-		mods[end] = b
+		mod_tuples.append((end,b))
 		for a in range(t):
 			js['ys'][a] += b
-	js['mods'].append(mods)
+	for tup in mod_tuples:
+		js['mods'].append({tup[0]:tup[1]})
 	return js
 
 #
