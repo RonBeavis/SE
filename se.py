@@ -20,7 +20,7 @@ from display_ids import simple_display,tsv_file
 def main():
 	print('started ...\n')
 	start = time.time()
-	job_stats = {'Software': 'SE','Software version': '2019.04.10.1'}
+	job_stats = {'Software': 'SE','Software version': '2019.05.01.1'}
 	job_stats['Start'] = str(datetime.datetime.now())
 #	
 #	load command line parameters and test for errors
@@ -47,7 +47,7 @@ def main():
 	print('   %.3f s' % (delta))
 	start = time.time()
 
-	print('\nLoading kernel')
+	print('\nLoading kernels')
 	kfs = params['kernel file'].split(',')
 	kernel = []
 	kmass = []
