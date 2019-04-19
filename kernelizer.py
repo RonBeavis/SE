@@ -231,10 +231,10 @@ def add_validation(_l,_v):
 	ofile.close()
 
 try:
-	conn = mysql.connector.connect(host='192.168.1.4',
+	conn = mysql.connector.connect(host='192.168.0.1',
 					database='peakdb',
-					user='thehome87team',
-					password='hunt45andpeck') 
+					user='*****',
+					password='*****') 
 except:
 	print('{"error":"Could not connect to database"}\n')
 	exit()
