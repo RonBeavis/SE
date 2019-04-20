@@ -112,33 +112,13 @@ def load_params(_argv):
 #
 #	test parameters for obvious problems
 #
-	pval = 'kernel file'
-	if pval not in params:
-		print(''' no %s (-k) specified on command line''' % (pval))
-		ret = False
-	if pval in params:
-		kfs = params[pval].split(',')
-		for k in kfs:
-			if not os.path.isfile(k):
-				print(''' %s (-k) "%s" does not exist''' % (pval,k))
-				ret = False
-	pval = 'spectra file'
-	if pval not in params:
-		print(''' no %s (-s) specified on command line''' % (pval))
-		ret = False
-	if pval in params:
-		sfs = params[pval].split(',')
-		for s in sfs:
-			if not os.path.isfile(s):
-				print(''' %s (-s) "%s" does not exist''' % (pval,s))
-				ret = False
 	pval = 'parent mass tolerance'
 	if pval in params and (params[pval] is None or params[pval] < 1) :
-		print(''' %s (-p) bad value\n   must be an integer > 0''' % (pval))
+		print('''Error: %s (-p) bad value\n   must be an integer > 0''' % (pval))
 		ret = False
-	pval = 'parent mass tolerance'
+	pval = 'fragment mass tolerance'
 	if pval in params and (params[pval] is None or params[pval] < 1) :
-		print(''' %s (-f) bad value\n   must be an integer > 0''' % (pval))
+		print('''Error: %s (-f) bad value\n   must be an integer > 0''' % (pval))
 		ret = False
 #
 #	add in any default values that may have been missed
@@ -164,7 +144,28 @@ def load_params(_argv):
 	if 'spectra file' in params:
 		if len(additional_spectra) > 0:
 			params['spectra file'] += ',%s' % additional_spectra
+
 	elif len(additional_spectra) > 0:
 		params['spectra file'] += '%s' % additional_spectra
+	pval = 'kernel file'
+	if pval not in params:
+		print(''' no %s (-k) specified on command line or default file''' % (pval))
+		ret = False
+	if pval in params:
+		kfs = params[pval].split(',')
+		for k in kfs:
+			if not os.path.isfile(k):
+				print('''Error: %s (-k/K) "%s" does not exist''' % (pval,k))
+				ret = False
+	pval = 'spectra file'
+	if pval not in params:
+		print(''' no %s (-s) specified on command line or default file''' % (pval))
+		ret = False
+	if pval in params:
+		sfs = params[pval].split(',')
+		for s in sfs:
+			if not os.path.isfile(s):
+				print('''Error: %s (-s/S) "%s" does not exist''' % (pval,s))
+				ret = False
 	return (params,ret)
 
