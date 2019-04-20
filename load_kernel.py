@@ -187,11 +187,15 @@ def load_kernel(_f,_s,_param,_qi):
 		js_bs = list(js_master['bs'])
 		js_ys = list(js_master['ys'])
 		js_pm = js_master['pm']
-		for vp in v_stack:
-			lp = 0
-			vs_pos = vp[0]
-			vs_total= vp[1]
-			for lp in range(lp_len):
+#		for vp in v_stack:
+#			lp = 0
+#			vs_pos = vp[0]
+#			vs_total= vp[1]
+#			for lp in range(lp_len):
+		for lp in range(lp_len):
+			for vp in v_stack:
+				vs_pos = vp[0]
+				vs_total= vp[1]
 				bIaa = False
 				if 'C' in p_mods:
 					bIaa = isIaa[lp]

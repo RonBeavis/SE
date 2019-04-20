@@ -15,7 +15,7 @@ from load_spectra import load_spectra
 from load_kernel import load_kernel
 from load_params import load_params,load_defaults
 from perform_ids import perform_ids
-from display_ids import simple_display,tsv_file,display_parameters
+from display_ids import tsv_file,display_parameters
 
 def main():
 	print('started ...\n')
@@ -88,10 +88,12 @@ def main():
 #
 #	output the results
 #
+	print('\nCalulating statistics and storing results')
+
 	if 'output file' in params:
 		tsv_file(ids,scores,spectra,kernel,job_stats,params)
 	else:
-		simple_display(ids,scores,spectra,kernel,job_stats,params)
+		tsv_file(ids,scores,spectra,kernel,job_stats,params)
 	print('\n... done')
 
 if __name__== "__main__":
