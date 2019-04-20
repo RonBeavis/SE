@@ -1,0 +1,15 @@
+{
+"spectra file": "../spectra/yeast.jsms",
+"kernel file": "../kernels/crap.KR.kernel,../kernels/Saccharomyces_cerevisiae.R64-1-1.KR.kernel", 
+"output file": "../results/yeast.tsv",
+"fragment mass tolerance": 400,
+"parent mass tolerance": 10,
+"mods p":{"C":[57021,57021],"U":[57021,57021],"K":[0,8014],"R":[0,10008]},
+"mods v":{"M":[15995]},
+"mods o":{"nt-ammonia":true,"nt-water":true},
+"c13": true,
+"ptm depth": 2,
+"output valid only": true,
+"output bcid": false
+}
+
