@@ -92,18 +92,19 @@ def simple_display(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 #
 # generates a TSV file for the results of a job
 #
+def display_parameters(_params):
+	print('\nInput parameters:')
+	for j in sorted(_params,reverse=True):
+		if j == 'kernel order':
+			continue
+		print('     %s: %s' % (j,str(_params[j])))
 
 def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	ko = _params['kernel order'].copy()
 	modifications = get_modifications()
 	proton = 1.007276
 	outfile = _params['output file']
-	print('\n1. Input parameters:')
-	for j in sorted(_params,reverse=True):
-		if j == 'kernel order':
-			continue
-		print('     %s: %s' % (j,str(_params[j])))
-	print('\n2. Job statistics:')
+	print('\n1. Job statistics:')
 	for j in sorted(_job_stats,reverse=True):
 		if j.find('time') == -1:
 			print('    %s: %s' % (j,str(_job_stats[j])))
@@ -239,7 +240,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 				line += '\n'
 				ofile.write(line)
 	ofile.close()
-	print('\n3. Output parameters:')
+	print('\n2. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
 	print('    PSMs: %i' % (valid_ids))
 	print('    charges:')
