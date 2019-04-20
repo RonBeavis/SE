@@ -30,7 +30,7 @@ def perform_ids(_s,_k,_list,_param):
 	a = 0
 	ires = float(_param['fragment mass tolerance'])
 	score = 0
-	b_score = 5
+	b_score = 6
 #
 #	indicate progress to user
 #

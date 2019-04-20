@@ -72,7 +72,8 @@ def load_kernel(_f,_s,_param,_qi):
 	if depth > 10:
 		depth = 10
 	c_limit = 5
-	res = _param.get('parent mass tolerance')
+	res = 50
+	max_ppm = _param.get('parent mass tolerance')
 	ires = float(res)
 	fres = float(_param.get('fragment mass tolerance'))
 	nt_ammonia = True
@@ -219,7 +220,12 @@ def load_kernel(_f,_s,_param,_qi):
 				jc = None
 				for s in pms:
 					delta = s_masses[s]-tmass
-					if abs(delta) < res or (ok_c13 and abs(delta-c13) < res):
+					if(delta > 900):
+						ppm = abs(1e6*(delta-c13)/tmass)
+					else:
+						ppm = abs(1e6*delta/tmass)
+					if ppm < max_ppm:
+#					if abs(delta) < res or (ok_c13 and abs(delta-c13) < res):
 						if jv is None:
 							(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 #
@@ -263,8 +269,13 @@ def load_kernel(_f,_s,_param,_qi):
 					jv = None
 					jc = None
 					for s in pms:
-						delta = s_masses[s]-pm-p_total
-						if abs(delta-acetyl) < res or (ok_c13 and abs(delta-acetyl-c13) < res):
+						delta = s_masses[s]-pm-p_total-acetyl
+						if(delta > 900):
+							ppm = abs(1e6*(delta-c13)/tmass)
+						else:
+							ppm = abs(1e6*delta/tmass)
+						if ppm < max_ppm:
+#						if abs(delta-acetyl) < res or (ok_c13 and abs(delta-acetyl-c13) < res):
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if jv is None:
@@ -311,8 +322,13 @@ def load_kernel(_f,_s,_param,_qi):
 					jv = None
 					jc = None
 					for s in pms:
-						delta = s_masses[s]-pm-p_total
-						if abs(delta+dvalue) < res or (ok_c13 and abs(delta+dvalue-c13) < res):
+						delta = s_masses[s]-pm-p_total+dvalue
+						if(delta > 900):
+							ppm = abs(1e6*(delta-c13)/tmass)
+						else:
+							ppm = abs(1e6*delta/tmass)
+						if ppm < max_ppm:
+#						if abs(delta+dvalue) < res or (ok_c13 and abs(delta+dvalue-c13) < res):
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if jv is None:

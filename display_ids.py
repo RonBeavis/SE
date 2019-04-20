@@ -93,12 +93,44 @@ def find_limits(_w,_ids,_spectra,_kernel,_ko,_st,_mins):
 			if bins[first] >= min_bin:
 				high = first
 		first += 1
-#	for m in sorted(bins):
-#		print('%i %i' % (m,bins[m]))
+	max_bin = float(max_bin)
+	for m in sorted(bins):
+		print('%i %.1f %i' % (m,100.0*float(bins[m])/max_bin,bins[m]))
+	print(low,high)
 	return (low,high)
 
 def generate_scores(_ids,_scores,_spectra,_kernel,_params):
-	ko = _params['kernel order'].copy()
+	ko = _params['kernel order']
+	res = _params['fragment mass tolerance']
+	sfactor = 20
+	sadjust = 1
+	if res > 100:
+		sfactor = 40
+	sd = {}
+	for j in _ids:
+		p_score = 0.0
+		if not _ids[j]:
+			continue
+		for i in _ids[j]:
+			kern = _kernel[i]
+			lseq = list(kern[ko['seq']])
+			pmass = int(kern[ko['pm']]/1000)
+			cells = int(pmass-200)
+			if cells > 1500:
+				cells = 1500
+			total_ions = 2*(len(lseq) - 1)
+			if total_ions > sfactor:
+				total_ions = sfactor
+			if total_ions < _scores[j]:
+				total_ions = _scores[j] + 1
+			rv = scipy.stats.hypergeom(cells,total_ions,len(_spectra[j]['sms'])/3)
+			p = rv.pmf(_scores[j])
+			pscore = -100.0*math.log10(p)*sadjust
+			sd[(j,i)] = pscore
+	return sd
+
+def generate_scores_good(_ids,_scores,_spectra,_kernel,_params):
+	ko = _params['kernel order']
 	res = _params['fragment mass tolerance']
 	sfactor = 20
 	sadjust = 1
@@ -127,7 +159,7 @@ def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 	return sd
 
 def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
-	ko = _params['kernel order'].copy()
+	ko = _params['kernel order']
 	pscore_min = 200.0
 	print('     applying statistics')
 	score_tuples = generate_scores(_ids,_scores,_spectra,_kernel,_params)
@@ -170,6 +202,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	res = _params['fragment mass tolerance']
 	sfactor = 20
 	sadjust = 1
+	PSMs = 0
 	if res > 100:
 		sfactor = 40
 		sadjust = 0.5
@@ -194,6 +227,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 			pscore = 0.0
 			line = '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 			x = 0
+			bDone = False
 			for i in _ids[j]:
 				kern = _kernel[i]
 				lseq = list(kern[ko['seq']])
@@ -267,6 +301,9 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 					line += '\t%s' % (mhash.hexdigest())
 				line += '\n'
 				ofile.write(line)
+				bDone = True
+			if bDone:
+				PSMs += 1
 	ofile.close()
 	print('\n2. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
@@ -285,5 +322,9 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 		print('    parent delta sd (Da): %.3f' % (statistics.stdev(parent_delta)))
 		print('    parent delta mean (ppm): %.1f' % (statistics.mean(parent_delta_ppm)))
 		print('    parent delta sd (ppm): %.1f' % (statistics.stdev(parent_delta_ppm)))
-	print('    parent A: A0 = %i, A1 = %i' % (parent_a[0],parent_a[1]))
+	total = float(parent_a[0]+parent_a[1])
+	if total > 0:
+		print('    parent A: A0 = %i (%.1f), A1 = %i (%.1f)' % (parent_a[0],100*parent_a[0]/total,parent_a[1],100*parent_a[1]/total))
+	else:
+		print('    parent A: A0 = %i, A1 = %i' % (parent_a[0],parent_a[1]))
 

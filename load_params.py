@@ -145,7 +145,7 @@ def load_params(_argv):
 	           -k: proteome kernel file list
 		   -K: additional proteome kernel file list
 		   -o: output file (tsv)
-		   -p: parent mass tolerance in mDa (20)
+		   -p: parent mass tolerance in ppm (20)
 		   -s: spectrum file list (JSMS, MGF, mzML)
 		   -S: additional spectrum file list (JSMS, MGF,mzML)
 		   -m: fixed modifications (MASS1@X,MASS2@Y ...)
