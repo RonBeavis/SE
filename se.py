@@ -15,7 +15,7 @@ from load_spectra import load_spectra
 from load_kernel import load_kernel
 from load_params import load_params,load_defaults
 from perform_ids import perform_ids
-from display_ids import simple_display,tsv_file
+from display_ids import simple_display,tsv_file,display_parameters
 
 def main():
 	print('started ...\n')
@@ -30,10 +30,11 @@ def main():
 	if not ret:
 		print('\n... exited')
 		exit()
+	display_parameters(params)
 #
 #	load spectra from files, using command line specified list
 #
-	print('Loading spectra')
+	print('\nLoading spectra')
 	spectra = []
 	sfs = params['spectra file'].split(',')
 	for sf in sfs:

@@ -39,7 +39,6 @@ def load_defaults(_param):
 		return _param
 	for p in _param:
 		param[p] = _param[p]
-			
 	return param
 
 #
@@ -83,6 +82,52 @@ def load_params(_argv):
 				params['fragment mass tolerance'] = int(u)
 			except:
 				params['fragment mass tolerance'] = None
+		if v.find('-m') == 0:
+			ms = u.split(',')
+			if len(ms) > 0:
+				params['mods p'] = {}
+			pd = {}
+			for m in ms:
+				tp = m.split('@')
+				mass = int(0)
+				if len(tp) != 2:
+					print('Error: fixed modification "%s" invalid' % (m))
+					ret = False
+					break
+				try:
+					mass = int(tp[0])
+				except:
+					print('Error: fixed modification "%s" invalid' %(m))
+					ret = False
+					break
+				if tp[1] in pd:
+					pd[tp[1]].append(mass)
+				else:
+					pd[tp[1]] = [mass]
+			params['mods p'] = pd
+		if v.find('-v') == 0:
+			ms = u.split(',')
+			if len(ms) > 0:
+				params['mods v'] = {}
+			pd = {}
+			for m in ms:
+				tp = m.split('@')
+				mass = int(0)
+				if len(tp) != 2:
+					print('Error: variable modification "%s" invalid' % (m))
+					ret = False
+					break
+				try:
+					mass = int(tp[0])
+				except:
+					print('Error: variable modification "%s" invalid' % (m))
+					ret = False
+					break
+				if tp[1] in pd:
+					pd[tp[1]].append(mass)
+				else:
+					pd[tp[1]] = [mass]
+			params['mods v'] = pd
 		if v.find('-h') != -1:
 			ret = False
 			help = True
@@ -103,12 +148,16 @@ def load_params(_argv):
 		   -p: parent mass tolerance in mDa (20)
 		   -s: spectrum file list (JSMS, MGF, mzML)
 		   -S: additional spectrum file list (JSMS, MGF,mzML)
+		   -m: fixed modifications (MASS1@X,MASS2@Y ...)
+		   -v: variable modifications (MASS1@X,MASS2@Y ...)
 ''')
 		return (params,False)
 #
 #	load parameters file, if -d specified
 #
+#	print(params)
 	params = load_defaults(params)
+#	print(params)
 #
 #	test parameters for obvious problems
 #
