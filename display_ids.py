@@ -82,7 +82,7 @@ def find_limits(_w,_ids,_spectra,_kernel,_ko,_st,_mins):
 	first = min(bins)
 	last = max(bins)
 	if max_bin < 200:
-		return (first,last)
+		return (first,last+1,None)
 	min_bin = int(0.5 + float(max_bin)/100.0)
 	low = None
 	high = last
@@ -93,11 +93,7 @@ def find_limits(_w,_ids,_spectra,_kernel,_ko,_st,_mins):
 			if bins[first] >= min_bin:
 				high = first
 		first += 1
-	max_bin = float(max_bin)
-	for m in sorted(bins):
-		print('%i %.1f %i' % (m,100.0*float(bins[m])/max_bin,bins[m]))
-	print(low,high)
-	return (low,high)
+	return (low,high,bins)
 
 def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 	ko = _params['kernel order']
@@ -129,41 +125,30 @@ def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 			sd[(j,i)] = pscore
 	return sd
 
-def generate_scores_good(_ids,_scores,_spectra,_kernel,_params):
-	ko = _params['kernel order']
-	res = _params['fragment mass tolerance']
-	sfactor = 20
-	sadjust = 1
-	if res > 100:
-		sfactor = 40
-		sadjust = 0.5
-	sd = {}
-	for j in _ids:
-		p_score = 0.0
-		if not _ids[j]:
-			continue
-		for i in _ids[j]:
-			kern = _kernel[i]
-			lseq = list(kern[ko['seq']])
-			pmass = int(kern[ko['pm']]/1000)
-			cells = int(pmass-200)
-			total_ions = 2*(len(lseq) - 1)
-			if total_ions > sfactor:
-				total_ions = sfactor
-			if total_ions < _scores[j]:
-				total_ions = _scores[j] + 1
-			rv = scipy.stats.hypergeom(cells,total_ions,len(_spectra[j]['sms'])/3)
-			p = rv.pmf(_scores[j])
-			pscore = -100.0*math.log10(p)*sadjust
-			sd[(j,i)] = pscore
-	return sd
+def create_header():
+	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm'
 
 def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
+	if len(_ids) == 0:
+		ofile = open(_params['output file'],'w')
+		if not ofile:
+			print('Error: specified output file "%s" could not be opened\n       nothing written to file' % (outfile))
+			return False
+		ofile.write(create_header() + '\n')
+		print('\n2. Output parameters:')
+		print('    output file: %s' % (_params['output file']))
+		print('    PSMs: %i' % (0))
+		ofile.close()
+		return
+	
 	ko = _params['kernel order']
 	pscore_min = 200.0
 	print('     applying statistics')
 	score_tuples = generate_scores(_ids,_scores,_spectra,_kernel,_params)
-	(low,high) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,ko,score_tuples,pscore_min)
+	(low,high,bins) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,ko,score_tuples,pscore_min)
+	_params['output low ppm'] = low
+	_params['output high ppm'] = high
+	_params['output histogram ppm'] = bins
 	outfile = _params['output file']
 	print('     storing results in "%s"' % (outfile))
 	modifications = get_modifications()
@@ -185,7 +170,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	if 'output bcid' in _params:
 		use_bcid = _params['output bcid']
 	valid_ids = 0
-	line = 'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm'
+	line = create_header()
 	if use_bcid:
 		line += '\tbcid'
 	line += '\n'
@@ -281,7 +266,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 
 							line += '%s%s+%s;' % (aa,c,modifications[k[c]])
 						else:
-							ptm = '%.3f' % float(k[c])/1000.0
+							ptm = '%.3f' % (float(k[c])/1000.0)
 							aa = lseq[int(c)-int(kern[ko['beg']])]
 							if ptm in ptm_list:
 								ptm_list[ptm] += 1
@@ -305,18 +290,26 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 			if bDone:
 				PSMs += 1
 	ofile.close()
+	if PSMs == 0:
+		print('\n2. Output parameters:')
+		print('    output file: %s' % (_params['output file']))
+		print('    PSMs: %i' % (PSMs))
+		ofile.close()
+		return
+
 	print('\n2. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
-	print('    PSMs: %i' % (valid_ids))
+	print('    PSMs: %i' % (PSMs))
+	print('    parent ppms: (%i,%i)' % (_params['output low ppm'],_params['output high ppm']))
 	print('    charges:')
 	for z in sorted(z_list):
-		print('        %i: %i' % (z,z_list[z]))
+		print('          %i: %i' % (z,z_list[z]))
 	print('    modifications:')
 	for ptm in sorted(ptm_list, key=lambda s: s.casefold()):
 		aa_line = ''
 		for aa in sorted(ptm_aaa[ptm]):
 			aa_line += '%s[%i] ' % (aa,ptm_aaa[ptm][aa])
-		print('        %s: %s= %i' % (ptm,aa_line,ptm_list[ptm]))
+		print('          %s: %s= %i' % (ptm,aa_line,ptm_list[ptm]))
 	if len(parent_delta) > 10:
 		print('    parent delta mean (Da): %.3f' % (statistics.mean(parent_delta)))
 		print('    parent delta sd (Da): %.3f' % (statistics.stdev(parent_delta)))
@@ -327,4 +320,5 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 		print('    parent A: A0 = %i (%.1f), A1 = %i (%.1f)' % (parent_a[0],100*parent_a[0]/total,parent_a[1],100*parent_a[1]/total))
 	else:
 		print('    parent A: A0 = %i, A1 = %i' % (parent_a[0],parent_a[1]))
+	return
 

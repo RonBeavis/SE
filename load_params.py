@@ -112,7 +112,7 @@ def load_params(_argv):
 			pd = {}
 			for m in ms:
 				tp = m.split('@')
-				mass = int(0)
+				mass = 0
 				if len(tp) != 2:
 					print('Error: variable modification "%s" invalid' % (m))
 					ret = False
@@ -128,6 +128,7 @@ def load_params(_argv):
 				else:
 					pd[tp[1]] = [mass]
 			params['mods v'] = pd
+			print(params['mods v'])
 		if v.find('-h') != -1:
 			ret = False
 			help = True

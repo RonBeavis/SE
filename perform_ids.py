@@ -36,17 +36,7 @@ def perform_ids(_s,_k,_list,_param):
 #
 	print('.',end='')
 	sys.stdout.flush()
-#
-#	generate an array of normalized of kernel masses
-#
-#	for k in _k:
-#		okerns.append([int(0.5+i/ires) for i in k[ko['ms']]])
 
-#
-#	indicate progress to user
-#
-	print('.',end='')
-	sys.stdout.flush()
 #
 #	iterate through spectra and perform PSM scoring
 # 
@@ -63,23 +53,12 @@ def perform_ids(_s,_k,_list,_param):
 		ks = _list[a]
 		best_score = b_score
 		ident = []
-#		sps = s['ms']
-#		tps = []
-#
-#		generate a normalized set of spectrum masses
-#
-#		for p in sps:
-#			val = int(0.5+p/ires)
-#			tps.append(val)
-#			tps.append(val-1)
-#			tps.append(val+1)
 		s_set = set(s['sms'])
 #
 #		iterate through kernels on the list
 #		and track scoring
 #
 		for k in ks:
-#			score = score_id(s_set,okerns[k])
 			score = score_id(s_set,_k[k])
 			if score > best_score:
 				best_score = score

@@ -8,14 +8,13 @@
 # Reads kernels in either plain text or gzip'd text
 #
 
-# uncomment bisect to use the alternate spectrum indexing methods
-# create_index_b and get_spectra_b
-#import bisect 
+#
+# uncomment the next 2 imports for Cython
+#
 #from __future__ import print_function
 #from libcpp cimport bool as bool_t
 
 import ujson
-#import json
 import re
 import gzip
 import sys
@@ -66,14 +65,15 @@ def load_kernel(_f,_s,_param,_qi):
 # 	retrieve information from the _param dictionary and
 #	create faster local variables
 #
-	depth = 3
+	default_depth = 3
 	if 'ptm depth' in _param:
-		depth = _param.get('ptm depth')
-	if depth > 10:
-		depth = 10
+		default_depth = _param.get('ptm depth')
+	if default_depth > 10:
+		default_depth = 10
 	c_limit = 5
 	res = 50
-	max_ppm = _param.get('parent mass tolerance')
+	max_ppm = float(_param.get('parent mass tolerance'))*1.0e-6
+	min_ppm = -1.0*max_ppm
 	ires = float(res)
 	fres = float(_param.get('fragment mass tolerance'))
 	nt_ammonia = True
@@ -91,7 +91,7 @@ def load_kernel(_f,_s,_param,_qi):
 	if 'mods p' in _param:
 		p_mods = _param.get('mods p')
 	if 'mods v' in _param:
-		v_mods = _param.get('mods v')
+		default_v_mods = _param.get('mods v')
 #
 # 	create local variables for specific masses
 #
@@ -117,6 +117,18 @@ def load_kernel(_f,_s,_param,_qi):
 	print('.',end='')
 	sys.stdout.flush()
 #	lines = f.readlines()
+	lp_len = 0
+	if p_mods:
+		for v in p_mods:
+			lp_len = len(p_mods[v])
+			break
+	isIaa = [False]*lp_len
+	if 'C' in p_mods:
+		for i in range(len(p_mods['C'])):
+			if p_mods['C'][i] == 57021:
+				isIaa[i] = True
+			else:
+				isIaa[i] = False
 	for l in f:
 #
 # 		show activity to the user
@@ -130,11 +142,9 @@ def load_kernel(_f,_s,_param,_qi):
 #		this is much faster than doing a jsons.loads at this point
 #
 		js_master = ujson.loads(l)
-#		m = re.search('"pm": (.+?)\,.+"beg": (\d+).+"seq": "(.+?)"',l)
-#		if m is None:
-#			continue
 		if 'pm' not in js_master:
 			continue
+
 		if kernel_order is None:
 			kernel_order = {}
 			x = 0
@@ -145,18 +155,22 @@ def load_kernel(_f,_s,_param,_qi):
 				kernel_order[j] = x
 				x += 1
 			js_master.pop('mods')
+
 		pm = js_master['pm']
 		beg = js_master['beg']
 		seq = js_master['seq']
 #
 # 		generate fixed modification information
 #
-		(lp_pos,lp_total,lp_len) = generate_lpstack(p_mods,seq)
+		(lp_pos,lp_total) = generate_lpstack(p_mods,seq,lp_len)
 #
 # 		generate variable modification information
 #
+		
+		(v_mods,depth) = check_motifs(seq,default_v_mods,default_depth)
 		v_pos = generate_vd(v_mods,seq)
 		v_stack = generate_vstack(v_mods,v_pos,depth)
+
 		ok = False
 		delta = 0
 		b_mods = []
@@ -164,14 +178,6 @@ def load_kernel(_f,_s,_param,_qi):
 #
 # 		check for special case peptide N-terminal cyclization at Q, C or E
 #
-		isIaa = []
-		for v in p_mods:
-			if v == 'C':
-				for p in p_mods[v]:
-					if p == 57021:
-						isIaa.append(True)
-					else:
-						isIaa.append(False)
 		n_term = seq[:1]
 		q_ammonia_loss = False
 		c_ammonia_loss = False
@@ -188,11 +194,6 @@ def load_kernel(_f,_s,_param,_qi):
 		js_bs = list(js_master['bs'])
 		js_ys = list(js_master['ys'])
 		js_pm = js_master['pm']
-#		for vp in v_stack:
-#			lp = 0
-#			vs_pos = vp[0]
-#			vs_total= vp[1]
-#			for lp in range(lp_len):
 		for lp in range(lp_len):
 			for vp in v_stack:
 				vs_pos = vp[0]
@@ -211,21 +212,20 @@ def load_kernel(_f,_s,_param,_qi):
 				ok_c13 = False
 				if use_c13 and tmass > 1500000:
 					slots = [c13]
-					pms = get_spectra(s_index,tmass,ires,True,slots)
+					pms = get_spectra(s_index,tmass,ires,slots)
 					ok_c13 = True
 				else:
-					pms = get_spectra(s_index,tmass,ires,False,slots)
+					pms = get_spectra(s_index,tmass,ires,slots)
 				appended = False
 				jv = None
 				jc = None
 				for s in pms:
 					delta = s_masses[s]-tmass
 					if(delta > 900):
-						ppm = abs(1e6*(delta-c13)/tmass)
+						ppm = float(delta-c13)/tmass
 					else:
-						ppm = abs(1e6*delta/tmass)
-					if ppm < max_ppm:
-#					if abs(delta) < res or (ok_c13 and abs(delta-c13) < res):
+						ppm = float(delta)/tmass
+					if min_ppm < ppm < max_ppm:
 						if jv is None:
 							(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 #
@@ -254,7 +254,7 @@ def load_kernel(_f,_s,_param,_qi):
 				if '[' in p_mods:
 					if p_mods['['][lp] != 0:
 						continue
-				if beg < 4:
+				if beg < 4 and 'LFYIWHRKP'.find(n_term) == -1:
 					b_mods = []
 					y_mods = []
 					tmass = pm+p_total+acetyl
@@ -262,20 +262,19 @@ def load_kernel(_f,_s,_param,_qi):
 					ok_c13 = False
 					if use_c13 and tmass > 1500000:
 						slots = [c13]
-						pms = get_spectra(s_index,tmass,ires,True,slots)
+						pms = get_spectra(s_index,tmass,ires,slots)
 						ok_c13 = True
 					else:
-						pms = get_spectra(s_index,tmass,ires,False,slots)
+						pms = get_spectra(s_index,tmass,ires,slots)
 					jv = None
 					jc = None
 					for s in pms:
 						delta = s_masses[s]-pm-p_total-acetyl
 						if(delta > 900):
-							ppm = abs(1e6*(delta-c13)/tmass)
+							ppm = float(delta-c13)/tmass
 						else:
-							ppm = abs(1e6*delta/tmass)
-						if ppm < max_ppm:
-#						if abs(delta-acetyl) < res or (ok_c13 and abs(delta-acetyl-c13) < res):
+							ppm = float(delta)/tmass
+						if min_ppm < ppm < max_ppm:
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if jv is None:
@@ -315,20 +314,19 @@ def load_kernel(_f,_s,_param,_qi):
 					ok_c13 = False
 					if use_c13 and tmass > 1500000:
 						slots = [c13]
-						pms = get_spectra(s_index,tmass,ires,True,slots)
+						pms = get_spectra(s_index,tmass,ires,slots)
 						ok_c13= True
 					else:
-						pms = get_spectra(s_index,tmass,ires,False,slots)
+						pms = get_spectra(s_index,tmass,ires,slots)
 					jv = None
 					jc = None
 					for s in pms:
 						delta = s_masses[s]-pm-p_total+dvalue
 						if(delta > 900):
-							ppm = abs(1e6*(delta-c13)/tmass)
+							ppm = float(delta-c13)/tmass
 						else:
-							ppm = abs(1e6*delta/tmass)
-						if ppm < max_ppm:
-#						if abs(delta+dvalue) < res or (ok_c13 and abs(delta+dvalue-c13) < res):
+							ppm = float(delta)/tmass
+						if min_ppm < ppm < max_ppm:
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if jv is None:
@@ -359,6 +357,23 @@ def load_kernel(_f,_s,_param,_qi):
 
 		t += 1
 	return (qs,qm,spectrum_list,t,qn,kernel_order)
+
+def check_motifs(_seq,_d_mods,_depth):
+	dcoll = len(re.findall('G.PG', _seq))
+	dng = _seq.find('NG')
+	v_mods = _d_mods
+	depth = _depth
+	if dcoll > 1 or dng != -1:
+		v_mods = copy.deepcopy(_d_mods)
+		if dcoll > 1 and 'P' not in v_mods:
+			v_mods['P'] = [15995]
+			depth += dcoll
+			if depth > 5:
+				depth = 5
+		if dng != -1 and 'N' not in v_mods:
+			v_mods['N'] = [984]
+	return (v_mods,depth)
+
 #
 # method to convert floating point masses in Daltons to integer masses in milliDaltons
 #
@@ -425,13 +440,15 @@ def generate_vd(_mods,_seq):
 	ls = len(_seq)
 	for v in _mods:
 		v_pos[v] = []
-		if v == '[' and _mods.get(v) != 0:
+		if _mods.get(v) == 0:
+			continue
+		if v == '[':
 			v_pos[v] = [0]
 			keep = True
-		elif v == ']' and _mods.get(v) != 0:
+		elif v == ']':
 			v_pos[v] = [ls-1]
 			keep = True
-		if _seq.find(v) != -1 and _mods.get(v) != 0:
+		if _seq.find(v) != -1:
 			v_pos[v] = [x for x, y in enumerate(_seq) if y == v]
 			keep = True
 	if not keep:
@@ -443,14 +460,11 @@ def generate_vd(_mods,_seq):
 # with this information for each set of modification states to be tested
 #
 
-def generate_lpstack(_mods,_seq):
-	lp_len = 0
+def generate_lpstack(_mods,_seq,_lp_len):
+	lp_len = _lp_len
 	lp_pos = []
 	lp_total = []
 	ls = len(_seq)
-	for p in _mods:
-		lp_len = len(_mods[p])
-		break
 	lp = 0
 	while lp < lp_len:
 		p_pos = {}
@@ -459,15 +473,17 @@ def generate_lpstack(_mods,_seq):
 		for p in _mods:
 			p_pos[p] = []
 			pms = _mods[p]
-			if p == '[' and pms[lp] != 0:
+			if pms[lp] == 0:
+				continue
+			if p == '[':
 				p_pos[p] = [0]
 				p_total += pms[lp]
 				keep = True
-			elif p == ']' and pms[lp] != 0:
+			elif p == ']':
 				p_pos[p] = [ls-1]
 				p_total += pms[lp]
 				keep = True
-			elif _seq.find(p) != -1 and pms[lp] != 0:
+			elif _seq.find(p) != -1:
 				p_pos[p] = [x for x, y in enumerate(_seq) if y == p]
 				p_total += len(p_pos[p])*pms[lp]
 				keep = True
@@ -476,7 +492,7 @@ def generate_lpstack(_mods,_seq):
 		lp_pos.append(p_pos)
 		lp_total.append(p_total)
 		lp += 1
-	return (lp_pos,lp_total,lp_len)
+	return (lp_pos,lp_total)
 
 #
 # generate a JSON object from the kernel entry line (_l) and modify it
@@ -618,43 +634,12 @@ def create_index(_sp,_r):
 		a += 1
 	return (index,masses)
 
-def get_spectra(_index,_mass,_r,_use_slots = False,_slots = []):
+def get_spectra(_index,_mass,_r,_slots = []):
 	iv = int(0.5+_mass/_r)
 	pms = []
-	if iv in _index:
-		pms += _index.get(iv)
-	if _use_slots:
-		for s in _slots:
-			iv = int(0.5+(_mass+s)/_r)
-			if iv in _index:
-				pms += _index.get(iv)
+	pms += _index.get(iv,[])
+	for s in _slots:
+		iv = int(0.5+(_mass+s)/_r)
+		pms += _index.get(iv,[])
 	return pms
-
-#
-# Two methods for an alternate spectrum mass indexing system
-# that uses "bisect" to find matches - more exact but slower
-#
-#def create_index_b(_sp,_r):
-#	index = []
-#	masses = []
-#	a = 0
-#	pm = 0
-#	m = 0
-#	for s in _sp:
-#		m = s['pm']
-#		masses.append(m)
-#		index.append((m,a))
-#		a += 1
-#	index.sort()
-#	return (index,masses)
-
-#def get_spectra_b(_index,_mass,_r):
-#	li = len(_index)
-#	pms = []
-#	last = _mass + _r
-#	s = bisect.bisect_left(_index,(_mass-_r,))
-#	while s < li and _index[s][0] <= last:
-#		pms.append(_index[s][1])
-#		s += 1
-#	return pms
 
