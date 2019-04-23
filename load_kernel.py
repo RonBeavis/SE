@@ -13,13 +13,14 @@
 #
 #from __future__ import print_function
 #from libcpp cimport bool as bool_t
-
+#from numba import jit
 import ujson
 import re
 import gzip
 import sys
 import itertools
 import copy
+
 #
 # method to import a list of isotopic masses necessary to do some of the calculations.
 # if 'isotopes.txt' is not available, a warning is thrown and a default list is used.
@@ -55,8 +56,9 @@ def load_kernel(_f,_s,_param,_qi):
 	r = 0
 	(qs,qm,spectrum_list,t,qn,kernel_order) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
 	return (qs,qm,spectrum_list,t,qn,kernel_order)
-
+#@jit
 def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
+	motif_proteins = set([])
 	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
 		f = gzip.open(_f,'rt', encoding='utf-8')
@@ -143,7 +145,7 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 #
 # 		show activity to the user
 #
-		if t % 50000 == 0:
+		if t % 10000 == 0:
 			print('.',end='')
 			sys.stdout.flush()
 		v_pos = {}
@@ -382,10 +384,10 @@ def check_motifs(_seq,_d_mods,_depth):
 		v_mods = copy.deepcopy(_d_mods)
 		if dcoll > 1 and 'P' not in v_mods:
 			v_mods['P'] = [15995]
-			depth += dcoll
+			depth = dcoll
 			if depth > 5:
 				depth = 5
-		if dng != -1 and 'N' not in v_mods:
+		elif dng != -1 and 'N' not in v_mods:
 			v_mods['N'] = [984]
 	return (v_mods,depth)
 
@@ -423,6 +425,13 @@ def generate_vstack(_mods,_pos,_depth = 3):
 #
 #	iterate to the specified depth of modification
 #
+	isDeamidated = False
+	if 'N' in _mods:
+		if _mods['N'][0] == 984:
+			isDeamidated = True
+	if 'Q' in _mods:
+		if _mods['Q'][0] == 984:
+			isDeamidated = True
 	while d <= _depth:
 #
 #		generate a list of all possible combinations of "d" modifications
@@ -441,6 +450,8 @@ def generate_vstack(_mods,_pos,_depth = 3):
 					continue
 				vs_pos[v] = [x[1] for x in ml if x[0] == v]
 				dm += _mods[v][0]*len(vs_pos.get(v))
+			if isDeamidated and len(vs_pos.get('N',[]) + vs_pos.get('Q',[])) > 1:
+				continue
 			v_stack.append([vs_pos,dm])
 		d += 1
 	return v_stack
@@ -528,7 +539,7 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
 	dm = jin['pm'] - 400000
 	ms = jin['bs']+jin['ys']
 #	ms += [m/2 for m in jin['bs'] if m > 800000 and m > dm]
-	ms += [m/2 for m in jin['ys'] if m > 800000 and m > dm]
+	ms += [m/2 for m in jin['ys'] if m > 1000000 and m > dm]
 #	ms.sort()
 	ms = [int(0.5+i/_fres) for i in ms]
 	v = []

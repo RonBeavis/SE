@@ -145,7 +145,6 @@ def load_params(_argv):
 				else:
 					pd[tp[1]] = [mass]
 			params['mods v'] = pd
-			print(params['mods v'])
 		if v.find('-h') != -1:
 			ret = False
 			help = True
@@ -154,7 +153,7 @@ def load_params(_argv):
 		ret = False
 	if help:
 		print('''
-	>python3 se.py -k KERNeL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR)
+	>python3 se.py -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR)
 	   where:
 		   -c: use C13 isotope-error testing (yes/no)
 		   -d: default parameter file (JSON)
@@ -196,6 +195,7 @@ def load_params(_argv):
 #
 	para_min = {'fragment mass tolerance': 400,
 		'parent mass tolerance': 10,
+		'minimum peptide frequency': 1,
 		'mods p': {'C':[57021],'U':[57021]},
 		'mods v': {'M':[15995]},
 		'mods o': {'nt-ammonia':True,'nt-water':True},

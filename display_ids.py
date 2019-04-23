@@ -119,7 +119,10 @@ def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 				total_ions = sfactor
 			if total_ions < _scores[j]:
 				total_ions = _scores[j] + 1
-			rv = scipy.stats.hypergeom(cells,total_ions,len(_spectra[j]['sms'])/3)
+			sc = len(_spectra[j]['sms'])/3
+			if _scores[j] >= sc:
+				sc = _scores[j] + 2
+			rv = scipy.stats.hypergeom(cells,total_ions,sc)
 			p = rv.pmf(_scores[j])
 			pscore = -100.0*math.log10(p)*sadjust
 			sd[(j,i)] = pscore
