@@ -53,8 +53,18 @@ def load_params(_argv):
 	help = False
 	additional_spectra = ''
 	additional_kernels = ''
-	for v in _argv:
-		u = v[2:]
+	for i,v in enumerate(_argv):
+		if v.find('-h') != -1:
+			ret = False
+			help = True
+			break
+		if v.find('-') == 0:
+			if i + 1 < len(_argv):
+				u = _argv[i+1]
+			else:
+				continue
+		else:
+			continue
 		if v.find('-c') == 0:
 			params['c13'] = False
 			if u == 'yes':
@@ -62,6 +72,13 @@ def load_params(_argv):
 				
 		if v.find('-k') == 0:
 			params['kernel file'] = u
+		if v.find('-F') == 0:
+			try:
+				params['minimum peptide frequency'] = int(u)
+			except:
+				print('Error: minimum peptide frequency (-F) "%s" invalid' % (u))
+				ret = False
+				break
 		if v.find('-s') == 0:
 			params['spectra file'] = u
 		if v.find('-K') == 0:
@@ -137,20 +154,24 @@ def load_params(_argv):
 		ret = False
 	if help:
 		print('''
-	>python3 se.py -kKERNeL -sSPECTRA (-p20) (-f400) (-oFILE) (-dFILE) (-h) (-cV)
+	>python3 se.py -k KERNeL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR)
 	   where:
 		   -c: use C13 isotope-error testing (yes/no)
 		   -d: default parameter file (JSON)
 		   -f: fragment mass tolerance in mDa (400)
-	           -h: show the help list
-	           -k: proteome kernel file list
-		   -K: additional proteome kernel file list
-		   -o: output file (tsv)
+		   -F: minimum peptide frequency (1)
+	           -h: show the help page (overrides all other commands)
+	           -k: proteome kernel file list (FILE(,FILE2,FILE3,...))
+		   -K: additional kernel file list (FILE(,FILE2,FILE3,...))
+		   -o: output file name 
+		         formats: tab-separated values
 		   -p: parent mass tolerance in ppm (20)
-		   -s: spectrum file list (JSMS, MGF, mzML)
-		   -S: additional spectrum file list (JSMS, MGF,mzML)
-		   -m: fixed modifications (MASS1@X,MASS2@Y ...)
-		   -v: variable modifications (MASS1@X,MASS2@Y ...)
+		   -s: spectrum file list (FILE(,FILE2,FILE3,...)
+		         formats: JSMS, MGF or mzML
+		   -S: additional spectrum file list (FILE(,FILE2,FILE3,...))
+		         formats: JSMS, MGF or mzML
+		   -m: fixed modifications list (MASS1@X,MASS2@Y ...)
+		   -v: variable modifications list (MASS1@X,MASS2@Y ...)
 ''')
 		return (params,False)
 #

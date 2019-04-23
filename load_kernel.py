@@ -48,6 +48,15 @@ def load_isotopes():
 #
 
 def load_kernel(_f,_s,_param,_qi):
+	freq = 1
+	if 'minimum peptide frequency' in _param:
+		freq = int(_param['minimum peptide frequency'])
+	labels = {}
+	r = 0
+	(qs,qm,spectrum_list,t,qn,kernel_order) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
+	return (qs,qm,spectrum_list,t,qn,kernel_order)
+
+def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
 		f = gzip.open(_f,'rt', encoding='utf-8')
@@ -66,6 +75,7 @@ def load_kernel(_f,_s,_param,_qi):
 #	create faster local variables
 #
 	default_depth = 3
+	len_labels = len(_labels)
 	if 'ptm depth' in _param:
 		default_depth = _param.get('ptm depth')
 	if default_depth > 10:
@@ -133,7 +143,7 @@ def load_kernel(_f,_s,_param,_qi):
 #
 # 		show activity to the user
 #
-		if t % 10000 == 0:
+		if t % 50000 == 0:
 			print('.',end='')
 			sys.stdout.flush()
 		v_pos = {}
@@ -144,7 +154,9 @@ def load_kernel(_f,_s,_param,_qi):
 		js_master = ujson.loads(l)
 		if 'pm' not in js_master:
 			continue
-
+		if _r == 0:
+			if sum(js_master['ns']) < _freq:
+				continue
 		if kernel_order is None:
 			kernel_order = {}
 			x = 0
@@ -245,6 +257,7 @@ def load_kernel(_f,_s,_param,_qi):
 								qs.append(jv)
 								qm.append(jm)
 								appended = True
+								_labels[js_master['lb']] = 1
 							if s not in spectrum_list:
 								spectrum_list[s] = []
 							spectrum_list[s].append(qn)
@@ -295,6 +308,7 @@ def load_kernel(_f,_s,_param,_qi):
 								if not appended:
 									qs.append(jv)
 									qm.append(jm)
+									_labels[js_master['lb']] = 1
 									appended = True
 								if s not in spectrum_list:
 									spectrum_list[s] = []
@@ -347,6 +361,7 @@ def load_kernel(_f,_s,_param,_qi):
 								if not appended:
 									qs.append(jv)
 									qm.append(jm)
+									_labels[js_master['lb']] = 1
 									appended = True
 								if s not in spectrum_list:
 									spectrum_list[s] = []
@@ -359,7 +374,7 @@ def load_kernel(_f,_s,_param,_qi):
 	return (qs,qm,spectrum_list,t,qn,kernel_order)
 
 def check_motifs(_seq,_d_mods,_depth):
-	dcoll = len(re.findall('G.PG', _seq))
+	dcoll = len(re.findall('(?=(G.PG))', _seq))
 	dng = _seq.find('NG')
 	v_mods = _d_mods
 	depth = _depth
@@ -510,10 +525,10 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
 		jin = update_bions(jin,_b_mods)
 	if _y_mods:
 		jin = update_yions(jin,_y_mods)
-#	dm = jin['pm'] - 400000
+	dm = jin['pm'] - 400000
 	ms = jin['bs']+jin['ys']
 #	ms += [m/2 for m in jin['bs'] if m > 800000 and m > dm]
-#	ms += [m/2 for m in jin['ys'] if m > 800000 and m > dm]
+	ms += [m/2 for m in jin['ys'] if m > 800000 and m > dm]
 #	ms.sort()
 	ms = [int(0.5+i/_fres) for i in ms]
 	v = []

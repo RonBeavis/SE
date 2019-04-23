@@ -126,7 +126,7 @@ def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 	return sd
 
 def create_header():
-	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm'
+	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm\tn'
 
 def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	if len(_ids) == 0:
@@ -142,6 +142,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 		return
 	
 	ko = _params['kernel order']
+	proteins = set([])
 	pscore_min = 200.0
 	print('     applying statistics')
 	score_tuples = generate_scores(_ids,_scores,_spectra,_kernel,_params)
@@ -204,7 +205,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 			if valid_only:
 				psm += 1
 				continue
-			line = '%i\t%i\t%s\t%s\t%.3f\t%i\t\t\t\t\t\t\t\t\t\n' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'])
+			line = '%i\t%i\t%s\t%s\t%.3f\t%i\t\t\t\t\t\t\t\t\t\t\n' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'])
 			psm += 1
 		else:
 			sline = (json.dumps(_spectra[j])).encode()
@@ -212,8 +213,8 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 			pscore = 0.0
 			line = '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 			x = 0
-			bDone = False
 			for i in _ids[j]:
+				bDone = False
 				kern = _kernel[i]
 				lseq = list(kern[ko['seq']])
 				pmass = int(kern[ko['pm']]/1000)
@@ -242,8 +243,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 					z_list[z] = 1
 				mhash = hashlib.sha256()
 				lb = kern[ko['lb']]
-				if lb.find('-rev') != -1:
-					lb = '-rev'
+				proteins.add(lb)
 				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
 				psm += 1
 				line += '%i\t%i\t%s\t%s\t%s\t' % (kern[ko['beg']],kern[ko['end']],kern[ko['pre']],kern[ko['seq']],kern[ko['post']])
@@ -281,6 +281,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 								ptm_aaa[ptm] = {aa:1}
 							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
 				line += '\t%i\t%.0f\t%.3f\t%i' % (_scores[j],pscore,delta/1000,round(ppm,0))
+				line += '\t%i' % (sum(kern[ko['ns']]))
 				mhash.update(sline+(json.dumps(kern)).encode())
 				if use_bcid:
 					line += '\t%s' % (mhash.hexdigest())
@@ -300,6 +301,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	print('\n2. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
 	print('    PSMs: %i' % (PSMs))
+	print('    proteins: %i' % len(proteins))
 	print('    parent ppms: (%i,%i)' % (_params['output low ppm'],_params['output high ppm']))
 	print('    charges:')
 	for z in sorted(z_list):
