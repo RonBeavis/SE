@@ -16,8 +16,7 @@
 import re
 import json
 import hashlib
-import statistics
-import scipy.stats
+from scipy.stats import hypergeom,tmean,tstd
 import math
 
 #
@@ -122,7 +121,7 @@ def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 			sc = len(_spectra[j]['sms'])/3
 			if _scores[j] >= sc:
 				sc = _scores[j] + 2
-			rv = scipy.stats.hypergeom(cells,total_ions,sc)
+			rv = hypergeom(cells,total_ions,sc)
 			p = rv.pmf(_scores[j])
 			pscore = -100.0*math.log10(p)*sadjust
 			sd[(j,i)] = pscore
@@ -135,7 +134,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	if len(_ids) == 0:
 		ofile = open(_params['output file'],'w')
 		if not ofile:
-			print('Error: specified output file "%s" could not be opened\n       nothing written to file' % (outfile))
+			print('Error: specified output file "%s" could not be opened\n       nothing written to file' % (_params['output file']))
 			return False
 		ofile.write(create_header() + '\n')
 		print('\n2. Output parameters:')
@@ -316,10 +315,10 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 			aa_line += '%s[%i] ' % (aa,ptm_aaa[ptm][aa])
 		print('          %s: %s= %i' % (ptm,aa_line,ptm_list[ptm]))
 	if len(parent_delta) > 10:
-		print('    parent delta mean (Da): %.3f' % (statistics.mean(parent_delta)))
-		print('    parent delta sd (Da): %.3f' % (statistics.stdev(parent_delta)))
-		print('    parent delta mean (ppm): %.1f' % (statistics.mean(parent_delta_ppm)))
-		print('    parent delta sd (ppm): %.1f' % (statistics.stdev(parent_delta_ppm)))
+		print('    parent delta mean (Da): %.3f' % (tmean(parent_delta)))
+		print('    parent delta sd (Da): %.3f' % (tstd(parent_delta)))
+		print('    parent delta mean (ppm): %.1f' % (tmean(parent_delta_ppm)))
+		print('    parent delta sd (ppm): %.1f' % (tstd(parent_delta_ppm)))
 	total = float(parent_a[0]+parent_a[1])
 	if total > 0:
 		print('    parent A: A0 = %i (%.1f), A1 = %i (%.1f)' % (parent_a[0],100*parent_a[0]/total,parent_a[1],100*parent_a[1]/total))

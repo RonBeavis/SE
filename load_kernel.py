@@ -13,8 +13,8 @@
 #
 #from __future__ import print_function
 #from libcpp cimport bool as bool_t
-#from numba import jit
 import ujson
+#import json
 import re
 import gzip
 import sys
@@ -56,8 +56,10 @@ def load_kernel(_f,_s,_param,_qi):
 	r = 0
 	(qs,qm,spectrum_list,t,qn,kernel_order) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
 	return (qs,qm,spectrum_list,t,qn,kernel_order)
-#@jit
+
 def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
+#
+#	(_f,_s,_param,_qi,_freq,_labels,_r) = _in
 	motif_proteins = set([])
 	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
@@ -209,27 +211,23 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 		js_ys = list(js_master['ys'])
 		js_pm = js_master['pm']
 		for lp in range(lp_len):
+			bIaa = False
+			if 'C' in p_mods:
+				bIaa = isIaa[lp]
+			if c_ammonia_loss and not bIaa:
+				c_ammonia_loss = False
 			for vp in v_stack:
-				vs_pos = vp[0]
-				vs_total= vp[1]
-				bIaa = False
-				if 'C' in p_mods:
-					bIaa = isIaa[lp]
-				if c_ammonia_loss and not bIaa:
-					c_ammonia_loss = False
 				b_mods = []
 				y_mods = []
+				vs_pos = vp[0]
+				vs_total= vp[1]
 				p_pos = lp_pos[lp]
 				p_total = lp_total[lp]+vs_total
 				tmass = pm+p_total
-				slots = []
-				ok_c13 = False
 				if use_c13 and tmass > 1500000:
-					slots = [c13]
-					pms = get_spectra(s_index,tmass,ires,slots)
-					ok_c13 = True
+					pms = get_spectra(s_index,tmass,ires,[c13])
 				else:
-					pms = get_spectra(s_index,tmass,ires,slots)
+					pms = get_spectra(s_index,tmass,ires,[])
 				appended = False
 				jv = None
 				jc = None
@@ -269,18 +267,14 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 				if '[' in p_mods:
 					if p_mods['['][lp] != 0:
 						continue
-				if beg < 4 and 'LFYIWHRKP'.find(n_term) == -1:
+				if beg < 4:
 					b_mods = []
 					y_mods = []
 					tmass = pm+p_total+acetyl
-					slots = []
-					ok_c13 = False
 					if use_c13 and tmass > 1500000:
-						slots = [c13]
-						pms = get_spectra(s_index,tmass,ires,slots)
-						ok_c13 = True
+						pms = get_spectra(s_index,tmass,ires,[c13])
 					else:
-						pms = get_spectra(s_index,tmass,ires,slots)
+						pms = get_spectra(s_index,tmass,ires,[])
 					jv = None
 					jc = None
 					for s in pms:
@@ -326,14 +320,10 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 					if water_loss:
 						dvalue = water
 					tmass = pm+p_total-dvalue
-					slots = []
-					ok_c13 = False
 					if use_c13 and tmass > 1500000:
-						slots = [c13]
-						pms = get_spectra(s_index,tmass,ires,slots)
-						ok_c13= True
+						pms = get_spectra(s_index,tmass,ires,[c13])
 					else:
-						pms = get_spectra(s_index,tmass,ires,slots)
+						pms = get_spectra(s_index,tmass,ires,[])
 					jv = None
 					jc = None
 					for s in pms:
@@ -536,13 +526,13 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
 		jin = update_bions(jin,_b_mods)
 	if _y_mods:
 		jin = update_yions(jin,_y_mods)
-	dm = jin['pm'] - 400000
 	ms = jin['bs']+jin['ys']
-#	ms += [m/2 for m in jin['bs'] if m > 800000 and m > dm]
-	ms += [m/2 for m in jin['ys'] if m > 1000000 and m > dm]
-#	ms.sort()
-	ms = [int(0.5+i/_fres) for i in ms]
+	if jin['pm'] > 1200:
+		ms.append(jin['bs'][-1]/2)
+		ms.append(jin['bs'][-2]/2)
+		ms.append(jin['bs'][-3]/2)
 	v = []
+	ms = [int(0.5+i/_fres) for i in ms]
 	for j in jin:
 		if j == 'bs' or j == 'ys':
 			continue
@@ -555,12 +545,15 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
 # _mod - the array of modifications, &
 # _lp - the position in _pos
 #
+
 def update_ions(_js,_mods,_pos,_lp):
 	jin = _js
 	t = len(jin['bs'])
 	mod_tuples = []
-	tmod = 0.0
+	tmod = 0
 	beg = jin['beg']
+	a = 0
+	delta = 0
 	for m in _mods:
 		if not _pos[m]:
 			continue
@@ -659,6 +652,7 @@ def create_index(_sp,_r):
 			index[pm+1] = [a]
 		a += 1
 	return (index,masses)
+
 
 def get_spectra(_index,_mass,_r,_slots = []):
 	iv = int(0.5+_mass/_r)
