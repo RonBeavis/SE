@@ -39,20 +39,24 @@ def load_spectra(_in,_param):
 		return load_mzml(_in,_param)
 	elif test.find('.mzml.gz') == len(test)-8:
 		return load_mzml(_in,_param)
-	return load_mgf(_in)
+	return load_mgf(_in,_param)
 
 #
 # JSMS parser
 #
 
-def load_jsms(_in,_param):
-	sp = []
+cdef list load_jsms(str _in,dict _param):
+	cdef list sp = []
 	if _in.find('.gz') == len(_in) - 3:
 		f = gzip.open(_in,'rt',encoding = 'utf8')
 	else:
 		f = open(_in,'r',encoding = 'utf8')
-	proton = 1.007276
-	res = float(_param['fragment mass tolerance'])
+	cdef double proton = 1.007276
+	cdef double res = float(_param['fragment mass tolerance'])
+	cdef dict js = {}
+	cdef list ms = []
+	cdef list vs = []
+	cdef long m = 0
 	for l in f:
 		js = ujson.loads(l)
 		if 'lv' in js and 'pz' in js and js['pm']*js['pz'] > 600:
@@ -72,24 +76,25 @@ def load_jsms(_in,_param):
 #
 # MGF parser
 #
-def load_mgf(_in,_param):
+cdef list load_mgf(str _in,dict _param):
 	if _in.find('.gz') == len(_in) - 3:
 		ifile = gzip.open(_in,'rt')
 	else:
 		ifile = open(_in,'r')
-	s = 1
-	js = {}
-	sp = []
-	Ms = []
-	Is = []
-	MsPos = 0
-	amIn = 0
-	proton = 1.007276
-	found = set([])
+	cdef long s = 1
+	cdef dict js = {}
+	cdef dict jc = {}
+	cdef list sp = []
+	cdef list Ms = []
+	cdef list Is = []
+	cdef long MsPos = 0
+	cdef long amIn = 0
+	cdef double proton = 1.007276
+	cdef set found = set([])
 	print('.',end='')
 	sys.stdout.flush()
-	digit = set(['1','2','3','4','5','6','7','8','9'])
-	res = float(_param['fragment mass tolerance'])
+	cdef set digit = set(['1','2','3','4','5','6','7','8','9'])
+	cdef double res = float(_param['fragment mass tolerance'])
 	for line in ifile:
 		fl = line[:1]
 		if amIn and fl in digit:
@@ -405,12 +410,13 @@ def load_mzml(_in,_param):
 	sp = parser.getContentHandler().getSpectra()
 	return sp
 
-def clean_one(_sp,_l,_ires):
-	s = _sp.copy()
-	a = 0
-	i_max = 0
-	pm = s['pm']
-	pz = s['pz']
+cdef dict clean_one(dict _sp,long _l,double _ires):
+	cdef dict s = _sp.copy()
+	cdef long a = 0
+	cdef double i_max = 0.0
+	cdef long pm = s['pm']
+	cdef long pz = s['pz']
+	cdef long m = 0
 	for i in s['is']:
 		m = s['ms'][a]
 		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
@@ -419,15 +425,13 @@ def clean_one(_sp,_l,_ires):
 		if i > i_max:
 			i_max = i
 		a += 1
-	sMs = []
-	sIs = []
-	a = 0
-	i_max /= 100
-	for m in s['ms']:
+	cdef list sMs = []
+	cdef list sIs = []
+	i_max /= 100.0
+	for a,m in enumerate(s['ms']):
 		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
-			a += 1
 			continue
-		if s['is'][a]/i_max > 1.0:
+		if float(s['is'][a])/i_max > 1.0:
 			i = s['is'][a]/i_max
 			if sMs:
 				if abs(sMs[-1] - m) < 500:
@@ -442,7 +446,6 @@ def clean_one(_sp,_l,_ires):
 			else:
 				sMs.append(m)
 				sIs.append(i)
-		a += 1
 	sMs = [x for _,x in sorted(zip(sIs,sMs), key=lambda pair: pair[0],reverse = True)]
 	sIs.sort(reverse = True)
 	sMs = sMs[:_l]
@@ -453,12 +456,13 @@ def clean_one(_sp,_l,_ires):
 #	sp[a]['is'] = sIs
 	s.pop('ms')
 	s.pop('is')
-	tps = []
+	cdef list tps = []
+	cdef long val = 0
 #
 #		generate a normalized set of spectrum masses
 #
 	for m in sMs:
-		val = int(0.5+m/_ires)
+		val = int(0.5+float(m)/_ires)
 		tps.append(val)
 		tps.append(val-1)
 		tps.append(val+1)

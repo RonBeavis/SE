@@ -57,7 +57,7 @@ def load_kernel(_f,_s,_param,_qi):
 	(qs,qm,spectrum_list,t,qn,kernel_order) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
 	return (qs,qm,spectrum_list,t,qn,kernel_order)
 
-cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,_labels,long _r):
+cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict _labels,long _r):
 #
 #	(_f,_s,_param,_qi,_freq,_labels,_r) = _in
 	motif_proteins = set([])
@@ -70,9 +70,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,_labe
 #	set kernel offset when loading multiple kernel files
 #
 	cdef long qn = _qi
-	sms_list = []
-	for s in _s:
-		sms_list.append(set(s['sms']))
+	cdef list sms_list = []
+	cdef dict sp
+	for sp in _s:
+		sms_list.append(set(sp['sms']))
 
 #
 # 	retrieve information from the _param dictionary and
@@ -99,8 +100,8 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,_labe
 	if 'c13' in _param:
 		use_c13 = _param.get('c13')
 	cdef long acetyl = 42011
-	p_mods = {}
-	v_mods = {}
+	cdef dict p_mods = {}
+	cdef dict v_mods = {}
 	if 'mods p' in _param:
 		p_mods = _param.get('mods p')
 	if 'mods v' in _param:
@@ -115,14 +116,14 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,_labe
 # 	initialize some variable outside of the main iteration
 #
 	cdef long t = 0
-	pms = []
-	qs = []
-	qm = []
-	spectrum_list = {}
-	p_pos = {}
-	v_pos = {}
+	cdef list pms = []
+	cdef list qs = []
+	cdef list qm = []
+	cdef dict spectrum_list = {}
+	cdef dict p_pos = {}
+	cdef dict v_pos = {}
 	(s_index,s_masses) = create_index(_s,ires)
-	kernel_order = None
+	cdef dict kernel_order = {}
 #
 # 	show activity to the user
 #
@@ -147,6 +148,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,_labe
 	cdef long delta = 0
 	cdef long c = 0
 	cdef long c_limit = 5
+	cdef long pm = 0
+	cdef long beg = 0
+	cdef str seq = ''
+	cdef long s = 0
 	q_ammonia_loss = False
 	c_ammonia_loss = False
 	water_loss = False
@@ -168,8 +173,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,_labe
 		if _r == 0:
 			if sum(js_master['ns']) < _freq:
 				continue
-		if kernel_order is None:
-			kernel_order = {}
+		if not kernel_order:
 			x = 0
 			js_master['mods'] = None
 			for j in js_master:

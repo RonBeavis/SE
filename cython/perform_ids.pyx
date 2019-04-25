@@ -24,15 +24,15 @@ def perform_ids(_s,_k,_list,_param):
 #
 #	initialize local variables
 #
-	cdef dict ko = _param['kernel order'].copy()
-	cdef dict ids = {}
-	cdef dict scores = {}
-	cdef long a = 0
-	cdef float ires = float(_param['fragment mass tolerance'])
-	cdef long score = 0
-	cdef long b_score = 6
-	cdef long best_score = 0
-	cdef list ident = []
+	ko = _param['kernel order'].copy()
+	ids = {}
+	scores = {}
+	a = 0
+	ires = float(_param['fragment mass tolerance'])
+	score = 0
+	b_score = 6
+	best_score = 0
+	ident = []
 #
 #	indicate progress to user
 #
@@ -42,7 +42,6 @@ def perform_ids(_s,_k,_list,_param):
 #
 #	iterate through spectra and perform PSM scoring
 # 
-	cdef dict s = {}
 	for s in _s:
 #
 #		skip spectra with 0 kernels
@@ -87,7 +86,7 @@ def perform_ids(_s,_k,_list,_param):
 #	count the number of matches between a normalized kernel and spectrum pair
 #
 
-cdef long score_id(set _s,list _k):
+cpdef long score_id(set _s,list _k):
 	cdef long c = 0
 	for k in _k:
 		if k in _s:
