@@ -1,0 +1,132 @@
+-48002	Dethiomethyl
+-18023	Ammonia-loss:+1 Da
+-18011	Dehydrated
+-17027	Ammonia-loss
+-4985	Met=Aha
+984	Deamidated
+997	Label:+1 n
+1000	Deamidated
+1994	Label:+2 n
+2004	Label:+2 Da
+2988	Deamidated:18O
+2991	Label:+3 n
+3000	Label:+3 Da
+3019	Label:+3 Da
+3020	Label:+3 Da
+3988	Label:+4 Da
+4008	Label:+4 Da
+4022	Label:+4 Da
+4025	Label:+4 Da
+6020	Label:+6 Da
+6014	Label:+6 Da
+7017	Label:+7 Da
+8010	Label:+8 Da
+8014	Label:+8 Da
+8050	Label:+8 Da
+9000	Label:+9 Da
+10014	Label:+10 Da
+10008	Label:+10 Da
+10021	Label:+10 Da
+10063	Label:+10 Da
+12000	Carbon
+14016	Methyl
+15995	Oxidation
+17035	Methyl:+3 Da
+18038	Methyl:+4 Da
+24995	NTCB
+26016	Delta:H(2)C(2)
+27995	Formyl
+28031	Dimethyl
+30044	Dimethyl:+2 Da
+30011	Hydroxmethyl
+31972	Sulfide
+31990	Dioxidation
+32000	Dioxidation
+32009	Formyl:+4 Da
+32056	Dimethyl:+4 Da
+34063	Dimethyl:+6 Da
+21982	Cation:Na
+36076	Dimethyl:+8 Da
+36046	Dimethyl:+8 Da
+37956	Cation:K
+42011	Acetyl
+42022	Guanidinyl
+42047	Trimethyl
+43006	Carbamyl
+43990	Carboxyl
+45029	Acetyl:2H(3)
+45988	Methylthio
+47985	Trioxidation
+47036	Acetyl:+5 Da
+47944	Delta:S(-1)Se(1)
+53919	Cation:Fe(II)
+54114	Trimethyl:+12 Da
+56026	Propionyl
+57021	Carbamidomethyl
+58019	CAM+Label:+ 1 Da
+58006	Carboxymethyl
+59036	Propionyl:+3 Da
+68063	Piperidine
+68037	IMID
+72063	IMID:+2 Da
+70042	Crotonaldehyde
+71037	Propionamide
+72021	Carboxyethyl
+75047	Aniline
+75998	DeStreak
+77911	Bromo
+79957	Sulfo
+79966	Phospho
+85979	Phospho:+6 Da
+86000	Malonyl
+87068	Hypusine
+87998	Thioacyl
+100016	Succinyl
+104029	Succinyl:+4 Da
+104041	Succinyl:+4 Da
+105021	ICPL
+105058	Pyridylethyl
+109047	ICPL:2H(4)
+111042	ICPL:13C(6)
+113084	H(11)C(6)NO
+114043	GlyGly
+119004	Cysteinyl
+120101	H(11)C(6)NO:+7 Da
+125048	Nethylmaleimide
+125897	Iodo
+130079	d(5)Nethylmaleimide
+144102	iTRAQ
+140095	mTRAQ
+148109	mTRAQ:+8Da
+145020	CAMthiopropanoyl
+155095	BS3+ammonia
+156079	BS3+water
+196121	Desthiobiotin
+203079	HexNAc
+224153	TMT
+225156	TMT2plex
+226078	Biotinyl
+227127	ICAT-C
+229014	PyridoxalPhosphate
+229163	TMT6plex
+251793	Diiodo
+299167	cysTMT
+304205	iTRAQ8plex
+304177	cysTMT6plex
+333169	DTH
+339207	DTH:+6Da
+361146	Biotin-Phenol
+365132	Hex-HexNAc
+377690	Triiodo
+383228	LRGG
+396084	Bacillithiol
+414194	PEO-Biotin
+442225	ICAT-D
+457192	NQTGG
+471208	QQTGG
+454181	QQTGG-NH3
+521307	ABPP
+527321	ABPP:+6Da
+572181	TMPP-Ac
+595613	Tetraiodo
+
