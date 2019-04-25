@@ -17,7 +17,8 @@ import re
 import json
 import hashlib
 from scipy.stats import hypergeom,tmean,tstd
-import math
+#import math
+from libc.math cimport log10
 
 #
 # retrieves a list of modification masses and names for use in displays
@@ -135,7 +136,7 @@ cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict
 				sc = _scores[j] + 2.0
 			rv = hypergeom(cells,total_ions,sc)
 			p = rv.pmf(_scores[j])
-			pscore = -100.0*math.log10(p)*sadjust
+			pscore = -100.0*log10(p)*sadjust
 			sd[(j,i)] = pscore
 	return sd
 

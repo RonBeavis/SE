@@ -20,6 +20,7 @@ import gzip
 import sys
 import itertools
 import copy
+#from libc.math cimport abs as m_abs
 
 #
 # method to import a list of isotopic masses necessary to do some of the calculations.
@@ -48,20 +49,18 @@ cdef dict load_isotopes():
 # this method is the only one called externally
 #
 
-def load_kernel(_f,_s,_param,_qi):
+def load_kernel(str _f,list _s,dict _param,long _qi):
 	cdef long freq = 1
 	if 'minimum peptide frequency' in _param:
 		freq = int(_param['minimum peptide frequency'])
-	labels = {}
+	cdef dict labels = {}
 	cdef long r = 0
 	(qs,qm,spectrum_list,t,qn,kernel_order) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
 	return (qs,qm,spectrum_list,t,qn,kernel_order)
 
 cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict _labels,long _r):
-#
-#	(_f,_s,_param,_qi,_freq,_labels,_r) = _in
-	motif_proteins = set([])
-	isotopes = load_isotopes()
+	cdef set motif_proteins = set([])
+	cdef dict isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
 		f = gzip.open(_f,'rt', encoding='utf-8')
 	else:
@@ -88,6 +87,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 	cdef long res = 50
 	cdef double max_ppm = float(_param.get('parent mass tolerance'))*1.0e-6
 	cdef double min_ppm = -1.0*max_ppm
+	cdef double ppm = 0.0
 	cdef double ires = float(res)
 	cdef double fres = float(_param.get('fragment mass tolerance'))
 	nt_ammonia = True
@@ -129,13 +129,13 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 #
 	print('.',end='')
 	sys.stdout.flush()
-#	lines = f.readlines()
+
 	cdef long lp_len = 0
 	if p_mods:
 		for v in p_mods:
 			lp_len = len(p_mods[v])
 			break
-	isIaa = [False]*lp_len
+	cdef list isIaa = [0]*lp_len
 	if 'C' in p_mods:
 		for i in range(len(p_mods['C'])):
 			if p_mods['C'][i] == 57021:
@@ -155,6 +155,9 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 	q_ammonia_loss = False
 	c_ammonia_loss = False
 	water_loss = False
+	ok = False
+	bIaa = False
+	appended = False
 	for l in f:
 #
 # 		show activity to the user
@@ -226,7 +229,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 			if 'C' in p_mods:
 				bIaa = isIaa[lp]
 			if c_ammonia_loss and not bIaa:
-				c_ammonia_loss = False
+				c_ammonia_loss = 0
 			for vp in v_stack:
 				b_mods = []
 				y_mods = []
@@ -380,7 +383,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 cdef tuple check_motifs(str _seq,dict _d_mods,long _depth):
 	cdef long dcoll = len(re.findall('(?=(G.PG))', _seq))
 	cdef long dng = _seq.find('NG')
-	v_mods = _d_mods
+	cdef dict v_mods = _d_mods
 	cdef long depth = _depth
 	if dcoll > 1 or dng != -1:
 		v_mods = copy.deepcopy(_d_mods)
@@ -405,7 +408,7 @@ cdef long normalize(_v):
 # in a single element
 #
 
-cdef list generate_vstack(_mods,_pos,long _depth = 3):
+cdef list generate_vstack(dict _mods,dict _pos,long _depth = 3):
 	cdef list v_stack = []
 	cdef dict vs_pos = {}
 	cdef list master_list = []
@@ -414,6 +417,7 @@ cdef list generate_vstack(_mods,_pos,long _depth = 3):
 #	and generate a list of the possible modifications
 #	where each element is a tuple of (residue,position)
 #
+	cdef str v = ''
 	for v in _mods:
 		vs_pos[v] = []
 		if v not in _pos:
@@ -427,14 +431,12 @@ cdef list generate_vstack(_mods,_pos,long _depth = 3):
 #
 #	iterate to the specified depth of modification
 #
-	isDeamidated = False
-	if 'N' in _mods:
-		if _mods['N'][0] == 984:
-			isDeamidated = True
-	if 'Q' in _mods:
-		if _mods['Q'][0] == 984:
-			isDeamidated = True
+	cdef long deamidated = 0
 	cdef long dm = 0
+	cdef list m_list = []
+	cdef tuple ml = ()
+	cdef long mod_mass = 0
+	cdef long mod_len = 0
 	while d <= _depth:
 #
 #		generate a list of all possible combinations of "d" modifications
@@ -446,14 +448,19 @@ cdef list generate_vstack(_mods,_pos,long _depth = 3):
 #		and supply the peptide mass change caused by the modifications
 #
 		for ml in m_list:
+			deamidated = 0
 			dm = 0
 			vs_pos = {}
 			for v in _mods:
 				if v not in _pos:
 					continue
 				vs_pos[v] = [x[1] for x in ml if x[0] == v]
-				dm += _mods[v][0] * len(vs_pos[v])
-			if isDeamidated and len(vs_pos.get('N',[]) + vs_pos.get('Q',[])) > 1:
+				mod_mass = _mods[v][0]
+				mod_len = len(vs_pos[v])
+				dm += mod_mass * mod_len
+				if _mods[v][0] == 984:
+					deamidated += mod_len
+			if deamidated > 1:
 				continue
 			v_stack.append([vs_pos,dm])
 		d += 1
@@ -467,6 +474,7 @@ cdef dict generate_vd(dict _mods,str _seq):
 	keep = False
 	cdef dict v_pos = {}
 	cdef long ls = len(_seq)
+	cdef str v = ''
 	for v in _mods:
 		v_pos[v] = []
 		if _mods.get(v) == 0:
@@ -545,6 +553,7 @@ cdef tuple load_json(dict _l,dict _p_pos,dict _p_mods,list _b_mods,list _y_mods,
 		ms.extend([jin['bs'][-1]/2,jin['bs'][-2]/2,jin['bs'][-3]/2])
 	cdef list v = []
 	ms = [int(0.5+float(i)/_fres) for i in ms]
+	cdef str j = ''
 	for j in jin:
 		if j == 'bs' or j == 'ys':
 			continue
@@ -566,6 +575,7 @@ cdef dict update_ions(dict _js,dict _mods,dict _pos,long _lp):
 	cdef long beg = jin['beg']
 	cdef long a = 0
 	cdef long delta = 0
+	cdef str m = ''
 	for m in _mods:
 		if not _pos[m]:
 			continue
@@ -606,11 +616,11 @@ cdef dict update_ions(dict _js,dict _mods,dict _pos,long _lp):
 #       debugging
 #
 cdef dict update_bions(_js,_bmods):
-	js = _js
+	cdef dict js = _js
 	cdef long t = len(js['bs'])
-	mods = {}
+	cdef dict mods = {}
 	cdef long beg = js['beg']
-	mod_tuples = []
+	cdef list mod_tuples = []
 	cdef long b = 0
 	cdef long a = 0
 	for b in _bmods:
