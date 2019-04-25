@@ -39,7 +39,7 @@ def load_spectra(_in,_param):
 		return load_mzml(_in,_param)
 	elif test.find('.mzml.gz') == len(test)-8:
 		return load_mzml(_in,_param)
-	return load_mgf(_in)
+	return load_mgf(_in,_param)
 
 #
 # JSMS parser
