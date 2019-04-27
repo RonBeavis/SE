@@ -50,11 +50,9 @@ def get_modifications():
 def display_parameters(_params):
 	print('\nInput parameters:')
 	for j in sorted(_params,reverse=True):
-		if j == 'kernel order':
-			continue
 		print('     %s: %s' % (j,str(_params[j])))
 
-cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _ko,dict _st,double _mins):
+cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _st,double _mins):
 	cdef dict bins = {}
 	cdef long j = 0
 	for j in _ids:
@@ -66,9 +64,9 @@ cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _ko,dic
 			if _st[(j,i)] < _mins:
 				continue
 			kern = _kernel[i]
-			if kern[_ko['lb']].find('decoy-') != -1:
+			if kern['lb'].find('decoy-') != -1:
 				continue
-			delta = int(_spectra[j]['pm']-kern[_ko['pm']])
+			delta = int(_spectra[j]['pm']-kern['pm'])
 			if abs(delta) <= _w:
 				delta = int(0.5 + 1.0e6*delta/_spectra[j]['pm'])
 				if delta in bins:
@@ -98,7 +96,6 @@ cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _ko,dic
 	return (low,high,bins)
 
 cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict _params):
-	cdef dict ko = _params['kernel order']
 	cdef long res = _params['fragment mass tolerance']
 	cdef long sfactor = 20
 	cdef long sadjust = 1
@@ -112,7 +109,7 @@ cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict
 	cdef list lseq = []
 	cdef long cells = 0
 	cdef long total_ions = 0
-	cdef list kern = []
+	cdef dict kern = {}
 	cdef long pmass= 0
 	cdef double sc = 0.0
 	for j in _ids:
@@ -121,8 +118,8 @@ cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict
 			continue
 		for i in _ids[j]:
 			kern = _kernel[i]
-			lseq = list(kern[ko['seq']])
-			pmass = int(kern[ko['pm']]/1000)
+			lseq = list(kern['seq'])
+			pmass = int(kern['pm']/1000)
 			cells = int(pmass-200)
 			if cells > 1500:
 				cells = 1500
@@ -141,7 +138,7 @@ cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict
 	return sd
 
 cdef str create_header():
-	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm\tn'
+	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm\tn\tsav\trs\tmaf'
 
 def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,dict _params):
 	if len(_ids) == 0:
@@ -156,12 +153,11 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 		ofile.close()
 		return True
 	
-	cdef dict ko = _params['kernel order']
 	cdef set proteins = set([])
 	cdef double pscore_min = 200.0
 	print('     applying statistics')
 	score_tuples = generate_scores(_ids,_scores,_spectra,_kernel,_params)
-	(low,high,bins) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,ko,score_tuples,pscore_min)
+	(low,high,bins) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,score_tuples,pscore_min)
 	_params['output low ppm'] = low
 	_params['output high ppm'] = high
 	_params['output histogram ppm'] = bins
@@ -204,7 +200,9 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 	cdef long sfactor = 20
 	cdef double sadjust = 1.0
 	cdef long PSMs = 0
-	bDone = False
+	cdef long SAVs = 0
+	cdef long DECOYs = 0
+	cdef dict sav_mafs = {}
 	if res > 100:
 		sfactor = 40
 		sadjust = 0.5
@@ -221,7 +219,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 			if valid_only:
 				psm += 1
 				continue
-			line = '%i\t%i\t%s\t%s\t%.3f\t%i\t\t\t\t\t\t\t\t\t\t\n' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'])
+			line = '%i\t%i\t%s\t%s\t%.3f\t%i\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'])
 			psm += 1
 		else:
 			sline = (json.dumps(_spectra[j])).encode()
@@ -230,17 +228,16 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 			line = '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 			x = 0
 			for i in _ids[j]:
-				bDone = False
 				kern = _kernel[i]
-				lseq = list(kern[ko['seq']])
-				pmass = int(kern[ko['pm']]/1000)
+				lseq = list(kern['seq'])
+				pmass = int(kern['pm']/1000)
 				pscore = score_tuples[(j,i)]
 				if pscore < pscore_min and valid_only:
 					break
-				delta = _spectra[j]['pm']-kern[ko['pm']]
-				ppm = 1e6*delta/kern[ko['pm']]
+				delta = _spectra[j]['pm']-kern['pm']
+				ppm = 1e6*delta/kern['pm']
 				if delta/1000.0 > 0.9:
-					ppm = 1.0e6*(delta-1003.0)/kern[ko['pm']]
+					ppm = 1.0e6*(delta-1003.0)/kern['pm']
 				if ppm < low or ppm > high:
 					continue
 				if x == 0 and delta/1000.0 > 0.9:
@@ -258,15 +255,17 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 				else:
 					z_list[z] = 1
 				mhash = hashlib.sha256()
-				lb = kern[ko['lb']]
+				lb = kern['lb']
 				proteins.add(lb)
+				if lb.find('decoy-') == 0:
+					DECOYs += 1
 				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
 				psm += 1
-				line += '%i\t%i\t%s\t%s\t%s\t' % (kern[ko['beg']],kern[ko['end']],kern[ko['pre']],kern[ko['seq']],kern[ko['post']])
-				for k in kern[ko['mods']]:
+				line += '%i\t%i\t%s\t%s\t%s\t' % (kern['beg'],kern['end'],kern['pre'],kern['seq'],kern['post'])
+				for k in kern['mods']:
 					for c in k:
 						if k[c] in modifications:
-							aa = lseq[int(c)-int(kern[ko['beg']])]
+							aa = lseq[int(c)-int(kern['beg'])]
 							ptm = modifications[k[c]]
 							if ptm in ptm_list:
 								ptm_list[ptm] += 1
@@ -283,7 +282,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 							line += '%s%s+%s;' % (aa,c,modifications[k[c]])
 						else:
 							ptm = '%.3f' % (float(k[c])/1000.0)
-							aa = lseq[int(c)-int(kern[ko['beg']])]
+							aa = lseq[int(c)-int(kern['beg'])]
 							if ptm in ptm_list:
 								ptm_list[ptm] += 1
 							else:
@@ -297,15 +296,20 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 								ptm_aaa[ptm] = {aa:1}
 							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
 				line += '\t%i\t%.0f\t%.3f\t%i' % (_scores[j],pscore,delta/1000,round(ppm,0))
-				line += '\t%i' % (sum(kern[ko['ns']]))
+				line += '\t%i' % (sum(kern['ns']))
+				if 'sav' in kern:
+					line += '\t%s%i%s\t%s\t%.2f' % (kern['res'],kern['pos'],kern['sav'],kern['rsn'],kern['maf'])
+					sav_mafs[kern['rsn']] = kern['maf']
+					SAVs += 1
+				else:
+					line += '\t\t\t'
 				mhash.update(sline+(json.dumps(kern)).encode())
 				if use_bcid:
 					line += '\t%s' % (mhash.hexdigest())
 				line += '\n'
 				ofile.write(line)
-				bDone = True
-			if bDone:
 				PSMs += 1
+				
 	ofile.close()
 	if PSMs == 0:
 		print('\n2. Output parameters:')
@@ -328,6 +332,18 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 		for aa in sorted(ptm_aaa[ptm]):
 			aa_line += '%s[%i] ' % (aa,ptm_aaa[ptm][aa])
 		print('          %s: %s= %i' % (ptm,aa_line,ptm_list[ptm]))
+	if DECOYs > 0:
+		print('    decoys:')
+		print('       total: %i' % (DECOYs))
+	print('    SAVs:')
+	print('       total: %i' % (SAVs))
+	if SAVs > 0:
+		print('       unique: %i' % (len(sav_mafs)))
+		power = 1.0
+		for maf in sav_mafs:
+			if sav_mafs[maf] is not None and sav_mafs[maf] != 0.0:
+				power *= sav_mafs[maf]
+		print('       power: %.2e:1' % (1.0/power))
 	if len(parent_delta) > 10:
 		print('    parent delta mean (Da): %.3f' % (tmean(parent_delta)))
 		print('    parent delta sd (Da): %.3f' % (tstd(parent_delta)))
