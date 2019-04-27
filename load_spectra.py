@@ -53,6 +53,7 @@ def load_jsms(_in,_param):
 		f = open(_in,'r',encoding = 'utf8')
 	proton = 1.007276
 	res = float(_param['fragment mass tolerance'])
+	m = 0.0
 	for l in f:
 		js = ujson.loads(l)
 		if 'lv' in js and 'pz' in js and js['pm']*js['pz'] > 600:
@@ -60,7 +61,7 @@ def load_jsms(_in,_param):
 			ms = js['ms']
 			vs = []
 			for m in ms:
-				vs.append(int(0.5 + 1000*(m-proton)))
+				vs.append(int(0.5 + 1000.0*(float(m)-proton)))
 			js['ms'] = vs
 			js = clean_one(js,50,res)
 			sp.append(js)
@@ -79,6 +80,7 @@ def load_mgf(_in,_param):
 		ifile = open(_in,'r')
 	s = 1
 	js = {}
+	jc = {}
 	sp = []
 	Ms = []
 	Is = []
@@ -90,6 +92,8 @@ def load_mgf(_in,_param):
 	sys.stdout.flush()
 	digit = set(['1','2','3','4','5','6','7','8','9'])
 	res = float(_param['fragment mass tolerance'])
+	m = 0.0
+	i = 0.0
 	for line in ifile:
 		fl = line[:1]
 		if amIn and fl in digit:
@@ -102,7 +106,7 @@ def load_mgf(_in,_param):
 			if m <= 0:
 				continue
 			i = float(vs[1])
-			if i <= 0:
+			if i <= 0.0:
 				continue
 			if MsPos % 1000 == 0:
 				ts = [0 for x in range(1000)]
@@ -408,26 +412,23 @@ def load_mzml(_in,_param):
 def clean_one(_sp,_l,_ires):
 	s = _sp.copy()
 	a = 0
-	i_max = 0
+	i_max = 0.0
 	pm = s['pm']
 	pz = s['pz']
-	for i in s['is']:
+	m = 0
+	for a,i in enumerate(s['is']):
 		m = s['ms'][a]
 		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
-			a += 1
 			continue
 		if i > i_max:
-			i_max = i
-		a += 1
+			i_max = float(i)
 	sMs = []
 	sIs = []
-	a = 0
-	i_max /= 100
-	for m in s['ms']:
+	i_max =float(i_max)/100.0
+	for a,m in enumerate(s['ms']):
 		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
-			a += 1
 			continue
-		if s['is'][a]/i_max > 1.0:
+		if float(s['is'][a])/i_max > 1.0:
 			i = s['is'][a]/i_max
 			if sMs:
 				if abs(sMs[-1] - m) < 500:
@@ -442,7 +443,6 @@ def clean_one(_sp,_l,_ires):
 			else:
 				sMs.append(m)
 				sIs.append(i)
-		a += 1
 	sMs = [x for _,x in sorted(zip(sIs,sMs), key=lambda pair: pair[0],reverse = True)]
 	sIs.sort(reverse = True)
 	sMs = sMs[:_l]
@@ -454,11 +454,12 @@ def clean_one(_sp,_l,_ires):
 	s.pop('ms')
 	s.pop('is')
 	tps = []
+	val = 0
 #
 #		generate a normalized set of spectrum masses
 #
-	for m in sMs:
-		val = int(0.5+m/_ires)
+	for m in sorted(sMs):
+		val = int(0.5+float(m)/_ires)
 		tps.append(val)
 		tps.append(val-1)
 		tps.append(val+1)

@@ -20,6 +20,7 @@ import gzip
 import sys
 import itertools
 import copy
+#from libc.math cimport abs as m_abs
 
 #
 # method to import a list of isotopic masses necessary to do some of the calculations.
@@ -54,12 +55,10 @@ def load_kernel(_f,_s,_param,_qi):
 		freq = int(_param['minimum peptide frequency'])
 	labels = {}
 	r = 0
-	(qs,qm,spectrum_list,t,qn,kernel_order) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
-	return (qs,qm,spectrum_list,t,qn,kernel_order)
+	(qs,qm,spectrum_list,t,qn) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
+	return (qs,qm,spectrum_list,t,qn)
 
-def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
-#
-#	(_f,_s,_param,_qi,_freq,_labels,_r) = _in
+def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 	motif_proteins = set([])
 	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
@@ -71,8 +70,9 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 #
 	qn = _qi
 	sms_list = []
-	for s in _s:
-		sms_list.append(set(s['sms']))
+	sp = {}
+	for sp in _s:
+		sms_list.append(set(sp['sms']))
 
 #
 # 	retrieve information from the _param dictionary and
@@ -84,10 +84,10 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 		default_depth = _param.get('ptm depth')
 	if default_depth > 10:
 		default_depth = 10
-	c_limit = 5
 	res = 50
 	max_ppm = float(_param.get('parent mass tolerance'))*1.0e-6
 	min_ppm = -1.0*max_ppm
+	ppm = 0.0
 	ires = float(res)
 	fres = float(_param.get('fragment mass tolerance'))
 	nt_ammonia = True
@@ -122,27 +122,41 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 	spectrum_list = {}
 	p_pos = {}
 	v_pos = {}
-	p_total = 0
 	(s_index,s_masses) = create_index(_s,ires)
-	kernel_order = None
 #
 # 	show activity to the user
 #
 	print('.',end='')
 	sys.stdout.flush()
-#	lines = f.readlines()
+
 	lp_len = 0
 	if p_mods:
 		for v in p_mods:
 			lp_len = len(p_mods[v])
 			break
-	isIaa = [False]*lp_len
+	isIaa = [0]*lp_len
 	if 'C' in p_mods:
 		for i in range(len(p_mods['C'])):
 			if p_mods['C'][i] == 57021:
 				isIaa[i] = True
 			else:
 				isIaa[i] = False
+	p_total = 0
+	d_value = 0
+	tmass = 0
+	delta = 0
+	c = 0
+	c_limit = 5
+	pm = 0
+	beg = 0
+	seq = ''
+	s = 0
+	q_ammonia_loss = False
+	c_ammonia_loss = False
+	water_loss = False
+	ok = False
+	bIaa = False
+	appended = False
 	for l in f:
 #
 # 		show activity to the user
@@ -161,16 +175,6 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 		if _r == 0:
 			if sum(js_master['ns']) < _freq:
 				continue
-		if kernel_order is None:
-			kernel_order = {}
-			x = 0
-			js_master['mods'] = None
-			for j in js_master:
-				if j == 'bs' or j == 'ys':
-					continue
-				kernel_order[j] = x
-				x += 1
-			js_master.pop('mods')
 
 		pm = js_master['pm']
 		beg = js_master['beg']
@@ -215,7 +219,7 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 			if 'C' in p_mods:
 				bIaa = isIaa[lp]
 			if c_ammonia_loss and not bIaa:
-				c_ammonia_loss = False
+				c_ammonia_loss = 0
 			for vp in v_stack:
 				b_mods = []
 				y_mods = []
@@ -231,6 +235,7 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 				appended = False
 				jv = None
 				jc = None
+				delta = 0
 				for s in pms:
 					delta = s_masses[s]-tmass
 					if(delta > 900):
@@ -363,7 +368,7 @@ def load_kernel_main(_f,_s,_param,_qi,_freq,_labels,_r):
 					qn += 1
 
 		t += 1
-	return (qs,qm,spectrum_list,t,qn,kernel_order)
+	return (qs,qm,spectrum_list,t,qn)
 
 def check_motifs(_seq,_d_mods,_depth):
 	dcoll = len(re.findall('(?=(G.PG))', _seq))
@@ -402,6 +407,7 @@ def generate_vstack(_mods,_pos,_depth = 3):
 #	and generate a list of the possible modifications
 #	where each element is a tuple of (residue,position)
 #
+	v = ''
 	for v in _mods:
 		vs_pos[v] = []
 		if v not in _pos:
@@ -415,13 +421,12 @@ def generate_vstack(_mods,_pos,_depth = 3):
 #
 #	iterate to the specified depth of modification
 #
-	isDeamidated = False
-	if 'N' in _mods:
-		if _mods['N'][0] == 984:
-			isDeamidated = True
-	if 'Q' in _mods:
-		if _mods['Q'][0] == 984:
-			isDeamidated = True
+	deamidated = 0
+	dm = 0
+	m_list = []
+	ml = ()
+	mod_mass = 0
+	mod_len = 0
 	while d <= _depth:
 #
 #		generate a list of all possible combinations of "d" modifications
@@ -433,14 +438,19 @@ def generate_vstack(_mods,_pos,_depth = 3):
 #		and supply the peptide mass change caused by the modifications
 #
 		for ml in m_list:
+			deamidated = 0
 			dm = 0
 			vs_pos = {}
 			for v in _mods:
 				if v not in _pos:
 					continue
 				vs_pos[v] = [x[1] for x in ml if x[0] == v]
-				dm += _mods[v][0]*len(vs_pos.get(v))
-			if isDeamidated and len(vs_pos.get('N',[]) + vs_pos.get('Q',[])) > 1:
+				mod_mass = _mods[v][0]
+				mod_len = len(vs_pos[v])
+				dm += mod_mass * mod_len
+				if _mods[v][0] == 984:
+					deamidated += mod_len
+			if deamidated > 1:
 				continue
 			v_stack.append([vs_pos,dm])
 		d += 1
@@ -454,6 +464,7 @@ def generate_vd(_mods,_seq):
 	keep = False
 	v_pos = {}
 	ls = len(_seq)
+	v = ''
 	for v in _mods:
 		v_pos[v] = []
 		if _mods.get(v) == 0:
@@ -482,7 +493,9 @@ def generate_lpstack(_mods,_seq,_lp_len):
 	lp_total = []
 	ls = len(_seq)
 	lp = 0
-	while lp < lp_len:
+	keep = False
+	p_total = 0
+	for lp in range(lp_len):
 		p_pos = {}
 		p_total = 0
 		keep = False
@@ -507,7 +520,6 @@ def generate_lpstack(_mods,_seq,_lp_len):
 			p_pos = {}
 		lp_pos.append(p_pos)
 		lp_total.append(p_total)
-		lp += 1
 	return (lp_pos,lp_total)
 
 #
@@ -528,15 +540,14 @@ def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
 		jin = update_yions(jin,_y_mods)
 	ms = jin['bs']+jin['ys']
 	if jin['pm'] > 1200:
-		ms.append(jin['bs'][-1]/2)
-		ms.append(jin['bs'][-2]/2)
-		ms.append(jin['bs'][-3]/2)
-	v = []
-	ms = [int(0.5+i/_fres) for i in ms]
+		ms.extend([jin['bs'][-1]/2,jin['bs'][-2]/2,jin['bs'][-3]/2])
+	v = {}
+	ms = [int(0.5+float(i)/_fres) for i in ms]
+	j = ''
 	for j in jin:
 		if j == 'bs' or j == 'ys':
 			continue
-		v.append(jin[j])
+		v[j] = jin[j]
 	return (v,ms)	
 
 #
@@ -554,6 +565,7 @@ def update_ions(_js,_mods,_pos,_lp):
 	beg = jin['beg']
 	a = 0
 	delta = 0
+	m = ''
 	for m in _mods:
 		if not _pos[m]:
 			continue
@@ -599,6 +611,8 @@ def update_bions(_js,_bmods):
 	mods = {}
 	beg = js['beg']
 	mod_tuples = []
+	b = 0
+	a = 0
 	for b in _bmods:
 		js['pm'] += b
 		mod_tuples.append((beg,b))
@@ -614,6 +628,8 @@ def update_yions(_js,_ymods):
 	mods = {}
 	end = js['end']
 	mod_tuples = []
+	b = 0
+	a = 0
 	for b in _ymods:
 		js['pm'] += b
 		mod_tuples.append((end,b))
@@ -634,10 +650,11 @@ def create_index(_sp,_r):
 	a = 0
 	pm = 0
 	m = 0
+	s = {}
 	for s in _sp:
 		m = s['pm']
 		masses.append(m)
-		pm = int(0.5 + m/_r)
+		pm = int(0.5 + float(m)/_r)
 		if pm in index:
 			index[pm].append(a)
 		else:
@@ -658,6 +675,7 @@ def get_spectra(_index,_mass,_r,_slots = []):
 	iv = int(0.5+_mass/_r)
 	pms = []
 	pms += _index.get(iv,[])
+	s = 0
 	for s in _slots:
 		iv = int(0.5+(_mass+s)/_r)
 		pms += _index.get(iv,[])
