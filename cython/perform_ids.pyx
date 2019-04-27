@@ -24,7 +24,6 @@ def perform_ids(_s,_k,_list,_param):
 #
 #	initialize local variables
 #
-	ko = _param['kernel order'].copy()
 	ids = {}
 	scores = {}
 	a = 0

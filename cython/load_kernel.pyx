@@ -55,8 +55,8 @@ def load_kernel(str _f,list _s,dict _param,long _qi):
 		freq = int(_param['minimum peptide frequency'])
 	cdef dict labels = {}
 	cdef long r = 0
-	(qs,qm,spectrum_list,t,qn,kernel_order) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
-	return (qs,qm,spectrum_list,t,qn,kernel_order)
+	(qs,qm,spectrum_list,t,qn) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
+	return (qs,qm,spectrum_list,t,qn)
 
 cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict _labels,long _r):
 	cdef set motif_proteins = set([])
@@ -70,7 +70,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 #
 	cdef long qn = _qi
 	cdef list sms_list = []
-	cdef dict sp
+	cdef dict sp = {}
 	for sp in _s:
 		sms_list.append(set(sp['sms']))
 
@@ -123,7 +123,6 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 	cdef dict p_pos = {}
 	cdef dict v_pos = {}
 	(s_index,s_masses) = create_index(_s,ires)
-	cdef dict kernel_order = {}
 #
 # 	show activity to the user
 #
@@ -176,16 +175,6 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 		if _r == 0:
 			if sum(js_master['ns']) < _freq:
 				continue
-		if not kernel_order:
-			x = 0
-			js_master['mods'] = None
-			for j in js_master:
-				if j == 'bs' or j == 'ys':
-					continue
-				kernel_order[j] = x
-				x += 1
-			js_master.pop('mods')
-
 		pm = js_master['pm']
 		beg = js_master['beg']
 		seq = js_master['seq']
@@ -378,7 +367,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 					qn += 1
 
 		t += 1
-	return (qs,qm,spectrum_list,t,qn,kernel_order)
+	return (qs,qm,spectrum_list,t,qn)
 
 cdef tuple check_motifs(str _seq,dict _d_mods,long _depth):
 	cdef long dcoll = len(re.findall('(?=(G.PG))', _seq))
@@ -551,13 +540,13 @@ cdef tuple load_json(dict _l,dict _p_pos,dict _p_mods,list _b_mods,list _y_mods,
 	cdef list ms = jin['bs']+jin['ys']
 	if jin['pm'] > 1200:
 		ms.extend([jin['bs'][-1]/2,jin['bs'][-2]/2,jin['bs'][-3]/2])
-	cdef list v = []
+	cdef dict v = {}
 	ms = [int(0.5+float(i)/_fres) for i in ms]
 	cdef str j = ''
 	for j in jin:
 		if j == 'bs' or j == 'ys':
 			continue
-		v.append(jin[j])
+		v[j] = jin[j]
 	return (v,ms)	
 
 #

@@ -56,7 +56,7 @@ cdef list load_jsms(str _in,dict _param):
 	cdef dict js = {}
 	cdef list ms = []
 	cdef list vs = []
-	cdef long m = 0
+	cdef double m = 0
 	for l in f:
 		js = ujson.loads(l)
 		if 'lv' in js and 'pz' in js and js['pm']*js['pz'] > 600:
@@ -64,7 +64,7 @@ cdef list load_jsms(str _in,dict _param):
 			ms = js['ms']
 			vs = []
 			for m in ms:
-				vs.append(int(0.5 + 1000*(m-proton)))
+				vs.append(int(0.5 + 1000.0*(m-proton)))
 			js['ms'] = vs
 			js = clean_one(js,50,res)
 			sp.append(js)
@@ -95,6 +95,8 @@ cdef list load_mgf(str _in,dict _param):
 	sys.stdout.flush()
 	cdef set digit = set(['1','2','3','4','5','6','7','8','9'])
 	cdef double res = float(_param['fragment mass tolerance'])
+	cdef double m = 0.0
+	cdef double i = 0.0
 	for line in ifile:
 		fl = line[:1]
 		if amIn and fl in digit:
@@ -417,14 +419,12 @@ cdef dict clean_one(dict _sp,long _l,double _ires):
 	cdef long pm = s['pm']
 	cdef long pz = s['pz']
 	cdef long m = 0
-	for i in s['is']:
+	for a,i in enumerate(s['is']):
 		m = s['ms'][a]
 		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
-			a += 1
 			continue
 		if i > i_max:
 			i_max = i
-		a += 1
 	cdef list sMs = []
 	cdef list sIs = []
 	i_max /= 100.0
@@ -461,7 +461,7 @@ cdef dict clean_one(dict _sp,long _l,double _ires):
 #
 #		generate a normalized set of spectrum masses
 #
-	for m in sMs:
+	for m in sorted(sMs):
 		val = int(0.5+float(m)/_ires)
 		tps.append(val)
 		tps.append(val-1)

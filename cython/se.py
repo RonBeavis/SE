@@ -55,11 +55,8 @@ def main():
 	spectrum_list = {}
 	k = 0
 	qn = 0
-	kernel_order = {}
 	for kf in kfs:
-		(kern,km,s_list,k1,qn,kernel_order) = load_kernel(kf,spectra,params,qn)
-		if kernel_order is not None:
-			params['kernel order'] = kernel_order
+		(kern,km,s_list,k1,qn) = load_kernel(kf,spectra,params,qn)
 		kernel += kern
 		kmass += km
 		for s in s_list:
