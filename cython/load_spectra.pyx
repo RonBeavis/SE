@@ -448,8 +448,11 @@ cdef dict clean_one(dict _sp,long _l,double _ires):
 				sIs.append(i)
 	sMs = [x for _,x in sorted(zip(sIs,sMs), key=lambda pair: pair[0],reverse = True)]
 	sIs.sort(reverse = True)
-	sMs = sMs[:_l]
-	sIs = sIs[:_l]
+	max_l = 2 * int(0.5 + float(pm)/100000.0)
+	if max_l > _l:
+		max_l = _l
+	sMs = sMs[:max_l]
+	sIs = sIs[:max_l]
 	sIs = [x for _,x in sorted(zip(sMs,sIs), key=lambda pair: pair[0])]
 	sMs.sort()
 #	sp[a]['ms'] = sMs

@@ -191,6 +191,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 	cdef dict z_list = {}
 	cdef dict ptm_list = {}
 	cdef dict ptm_aaa = {}
+	cdef set unique_psms = set([])
 	cdef list parent_delta = []
 	cdef list parent_delta_ppm = []
 	cdef list parent_a = [0,0]
@@ -259,6 +260,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 				proteins.add(lb)
 				if lb.find('decoy-') == 0:
 					DECOYs += 1
+				unique_psms.add(scan)
 				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
 				psm += 1
 				line += '%i\t%i\t%s\t%s\t%s\t' % (kern['beg'],kern['end'],kern['pre'],kern['seq'],kern['post'])
@@ -295,6 +297,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 							else:
 								ptm_aaa[ptm] = {aa:1}
 							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
+				line = re.sub(';$','',line)
 				line += '\t%i\t%.0f\t%.3f\t%i' % (_scores[j],pscore,delta/1000,round(ppm,0))
 				line += '\t%i' % (sum(kern['ns']))
 				if 'sav' in kern:
@@ -307,7 +310,6 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 				if use_bcid:
 					line += '\t%s' % (mhash.hexdigest())
 				line += '\n'
-				ofile.write(line)
 				PSMs += 1
 				
 	ofile.close()
@@ -320,7 +322,9 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 
 	print('\n2. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
-	print('    PSMs: %i' % (PSMs))
+	print('    PSMs:')
+	print('          total: %i' % (PSMs))
+	print('          unique: %i' % (len(unique_psms)))
 	print('    proteins: %i' % len(proteins))
 	print('    parent ppms: (%i,%i)' % (_params['output low ppm'],_params['output high ppm']))
 	print('    charges:')
