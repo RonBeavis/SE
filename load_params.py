@@ -41,6 +41,28 @@ def load_defaults(_param):
 		param[p] = _param[p]
 	return param
 
+def isotope_table():
+	lines = [x.rstrip() for x in open('isotopes.txt','r')]
+	print('\nIsotope\tMass(mDa)')
+	for l in lines:
+		vs = l.split('\t')
+		if len(vs) > 1:
+			print('%s\t%i' % (vs[0],int(0.5 + float(vs[1])*1000)))
+
+def modification_table():
+	lines = [x.rstrip() for x in open('common_mods_md.txt','r')]
+	print('\nModification\tMass(mDa)')
+	for l in lines:
+		vs = l.split('\t')
+		if len(vs) > 1:
+			print('%s\t%s' % (vs[1],vs[0]))
+
+def residue_table():
+	lines = [x for x in open('aa_residues.json','r')]
+	mods = json.loads(' '.join(lines))
+	print('\nResidue\tMass(mDa)')
+	for m in sorted(mods):
+		print('%s\t%i' % (m,int(0.5 + int(0.5 + mods[m]*1000.0))))
 #
 # loads the command line parameters from sys.argv
 # tests the parameters and deals with loading
@@ -54,10 +76,6 @@ def load_params(_argv):
 	additional_spectra = ''
 	additional_kernels = ''
 	for i,v in enumerate(_argv):
-		if v.find('-h') != -1:
-			ret = False
-			help = True
-			break
 		if v.find('-') == 0:
 			if i + 1 < len(_argv):
 				u = _argv[i+1]
@@ -148,12 +166,26 @@ def load_params(_argv):
 		if v.find('-h') != -1:
 			ret = False
 			help = True
+		if v.find('-l') != -1:
+			ret = False
+			if u == 'isos':
+				isotope_table()
+			elif u == 'aas':
+				residue_table()
+			elif u == 'mods':
+				modification_table()
+			else:
+				ret = True
+				help = True
+			if ret == False:
+				return (params,False)
+			break
 	if len(_argv) == 1:
 		help = True
 		ret = False
 	if help:
 		print('''
-	>python3 se.py -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR)
+	>python3 se.py -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR) (-l TYPE)
 	   where:
 		   -c: use C13 isotope-error testing (yes/no)
 		   -d: default parameter file (JSON)
@@ -171,6 +203,10 @@ def load_params(_argv):
 		         formats: JSMS, MGF or mzML
 		   -m: fixed modifications list (MASS1@X,MASS2@Y ...)
 		   -v: variable modifications list (MASS1@X,MASS2@Y ...)
+		   -l: list names and associated masses in mDa (isos|aas|mods)
+		         types: isos = isotopes, 
+		                aas = aa residues,
+		                mods = PTMs and chemical modifications 
 ''')
 		return (params,False)
 #

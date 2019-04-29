@@ -178,6 +178,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	z_list = {}
 	ptm_list = {}
 	ptm_aaa = {}
+	unique_psms = set([])
 	parent_delta = []
 	parent_delta_ppm = []
 	parent_a = [0,0]
@@ -245,6 +246,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 				lb = kern['lb']
 				if lb.find('decoy-') == 0:
 					DECOYs += 1
+				unique_psms.add(scan)
 				proteins.add(lb)
 				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
 				psm += 1
@@ -282,6 +284,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 							else:
 								ptm_aaa[ptm] = {aa:1}
 							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
+				line = re.sub(';$','',line)
 				line += '\t%i\t%.0f\t%.3f\t%i' % (_scores[j],pscore,delta/1000,round(ppm,0))
 				line += '\t%i' % (sum(kern['ns']))
 				if 'sav' in kern:
@@ -307,7 +310,9 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 
 	print('\n2. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
-	print('    PSMs: %i' % (PSMs))
+	print('    PSMs:')
+	print('          total: %i' % (PSMs))
+	print('          unique: %i' % (len(unique_psms)))
 	print('    proteins: %i' % len(proteins))
 	print('    parent ppms: (%i,%i)' % (_params['output low ppm'],_params['output high ppm']))
 	print('    charges:')
