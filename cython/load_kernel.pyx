@@ -271,7 +271,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 				if '[' in p_mods:
 					if p_mods['['][lp] != 0:
 						continue
-				if beg < 4:
+				if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
 					b_mods = []
 					y_mods = []
 					tmass = pm+p_total+acetyl

@@ -79,9 +79,15 @@ cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _st,dou
 	for m in bins:
 		if max_bin < bins[m]:
 			max_bin = bins[m]
-	cdef long first = min(bins)
-	cdef long last = max(bins)
-	if max_bin < 200:
+	cdef long first = -100
+	cdef long last = 99
+	for m in bins:
+		if max_bin < bins[m]:
+			max_bin = bins[m]
+	try:
+		first = min(bins)
+		last = max(bins)
+	except:
 		return (first,last+1,None)
 	cdef long min_bin = int(0.5 + float(max_bin)/100.0)
 	cdef long low = -100000000
@@ -140,7 +146,7 @@ cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict
 cdef str create_header():
 	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm\tn\tsav\trs\tmaf'
 
-def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,dict _params):
+def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,dict _params):
 	if len(_ids) == 0:
 		ofile = open(_params['output file'],'w')
 		if not ofile:
@@ -153,6 +159,11 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 		ofile.close()
 		return True
 	
+	cdef dict _scores = {}
+	cdef dict _intensities = {}
+	for st in _stuples:
+		_scores[st] = _stuples[st][0]
+		_intensities[st] = _stuples[st][1]
 	cdef set proteins = set([])
 	cdef double pscore_min = 200.0
 	print('     applying statistics')
@@ -198,6 +209,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 	cdef double pscore = 0.0
 	cdef long vresults = 0
 	cdef long res = _params['fragment mass tolerance']
+	cdef double minimum_intensity = _params['minimum identified intensity']
 	cdef long sfactor = 20
 	cdef double sadjust = 1.0
 	cdef long PSMs = 0
@@ -232,7 +244,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 				kern = _kernel[i]
 				lseq = list(kern['seq'])
 				pmass = int(kern['pm']/1000)
-				pscore = score_tuples[(j,i)]
+				pscore = score_tuples[(j,i)]*_intensities[j]/100.0
 				if pscore < pscore_min and valid_only:
 					break
 				delta = _spectra[j]['pm']-kern['pm']
@@ -240,6 +252,8 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 				if delta/1000.0 > 0.9:
 					ppm = 1.0e6*(delta-1003.0)/kern['pm']
 				if ppm < low or ppm > high:
+					continue
+				if _intensities[j] < minimum_intensity:
 					continue
 				if x == 0 and delta/1000.0 > 0.9:
 					parent_a[1] += 1
@@ -313,12 +327,24 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 				PSMs += 1
 				
 	ofile.close()
+	cdef list hist = [0]*101
+	cdef float a = 0.0
+	for a in _intensities:
+		v = int(_intensities[a])
+		if v <= 100:
+			hist[v] += 1
+	hist[0] = 0
+	v = 0
+	cdef double total = sum(hist)
+	cdef list int_hist = []
+	for v in range(100):
+			int_hist.append((v,hist[v],float(sum(hist[0:v])/total)))
 	if PSMs == 0:
 		print('\n2. Output parameters:')
 		print('    output file: %s' % (_params['output file']))
 		print('    PSMs: %i' % (PSMs))
 		ofile.close()
-		return True
+		return
 
 	print('\n2. Output parameters:')
 	print('    output file: %s' % (_params['output file']))
@@ -339,6 +365,7 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 	if DECOYs > 0:
 		print('    decoys:')
 		print('       total: %i' % (DECOYs))
+
 	print('    SAVs:')
 	print('       total: %i' % (SAVs))
 	if SAVs > 0:
@@ -358,5 +385,9 @@ def tsv_file(dict _ids,dict _scores,list _spectra,list _kernel,dict _job_stats,d
 		print('    parent A: A0 = %i (%.1f), A1 = %i (%.1f)' % (parent_a[0],100*parent_a[0]/total,parent_a[1],100*parent_a[1]/total))
 	else:
 		print('    parent A: A0 = %i, A1 = %i' % (parent_a[0],parent_a[1]))
+	if len(_intensities) > 10:
+		arr = [_intensities[a] for a in _intensities if _intensities[a] >= minimum_intensity]
+		print('    signal mean (%%): %.1f' % (tmean(arr)))
+		print('    signal sd (%%): %.1f' % (tstd(arr)))
 	return True
 

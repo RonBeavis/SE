@@ -54,24 +54,30 @@ def perform_ids(_s,_k,_list,_param):
 		ks = _list[a]
 		best_score = b_score
 		ident = []
-		s_set = set(s['sms'])
+#		s_set = set(s['sms'])
+		s_set = dict(zip(s['sms'],s['ims']))
+
 #
 #		iterate through kernels on the list
 #		and track scoring
 #
 		for k in ks:
-			score = score_id(s_set,_k[k])
+			(score,intensity) = score_id(s_set,_k[k])
 			if score > best_score:
 				best_score = score
 				ident = []
+				f = 100.0*intensity/s['isum']
+				best_intensity = f
 				ident.append(k)
 			elif score == best_score:
+				f = 100.0*intensity/s['isum']
+				best_intensity = f
 				ident.append(k)
 #
 #		record PSM results
 #
 		ids[a] = ident
-		scores[a] = best_score
+		scores[a] = (best_score,best_intensity)
 		a += 1
 #
 #		indicate progress to user
@@ -85,10 +91,12 @@ def perform_ids(_s,_k,_list,_param):
 #	count the number of matches between a normalized kernel and spectrum pair
 #
 
-cpdef long score_id(set _s,list _k):
-	cdef long c = 0
+cdef tuple score_id(dict _s,list _k):
+	c = 0
+	i = 0
 	for k in _k:
 		if k in _s:
 			c += 1
-	return c
+			i += _s[k]
+	return (c,i)
 

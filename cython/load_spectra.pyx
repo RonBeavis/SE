@@ -460,15 +460,19 @@ cdef dict clean_one(dict _sp,long _l,double _ires):
 	s.pop('ms')
 	s.pop('is')
 	cdef list tps = []
+	cdef list ips = []
 	cdef long val = 0
 #
 #		generate a normalized set of spectrum masses
 #
-	for m in sorted(sMs):
+	for a,m in enumerate(sMs):
 		val = int(0.5+float(m)/_ires)
 		tps.append(val)
 		tps.append(val-1)
 		tps.append(val+1)
+		ips.extend([sIs[a],sIs[a],sIs[a]])
 	s['sms'] = tps
+	s['ims'] = ips
+	s['isum'] = sum(sIs)
 	return s
 
