@@ -117,6 +117,11 @@ def load_params(_argv):
 				params['fragment mass tolerance'] = int(u)
 			except:
 				params['fragment mass tolerance'] = None
+		if v.find('-i') == 0:
+			try:
+				params['minimum identified intensity'] = float(u)
+			except:
+				params['minimum identified intensity'] = None
 		if v.find('-m') == 0:
 			ms = u.split(',')
 			if len(ms) > 0:
@@ -203,6 +208,7 @@ def load_params(_argv):
 		         formats: JSMS, MGF or mzML
 		   -m: fixed modifications list (MASS1@X,MASS2@Y ...)
 		   -v: variable modifications list (MASS1@X,MASS2@Y ...)
+		   -i: minimum %% intensity
 		   -l: list names and associated masses in mDa (isos|aas|mods)
 		         types: isos = isotopes, 
 		                aas = aa residues,
@@ -236,7 +242,8 @@ def load_params(_argv):
 		'mods v': {'M':[15995]},
 		'mods o': {'nt-ammonia':True,'nt-water':True},
 		'c13': False,
-		'output valid only': False}
+		'output valid only': False,
+		'minimum identified intensity': 20.0}
 	for p in para_min:
 		if p not in params:
 			params[p] = para_min[p]

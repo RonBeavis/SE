@@ -272,7 +272,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 				if '[' in p_mods:
 					if p_mods['['][lp] != 0:
 						continue
-				if beg < 4:
+				if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
 					b_mods = []
 					y_mods = []
 					tmass = pm+p_total+acetyl

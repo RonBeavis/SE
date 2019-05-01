@@ -73,11 +73,16 @@ def find_limits(_w,_ids,_spectra,_kernel,_st,_mins):
 					bins[delta] = 1
 			break
 	max_bin = 0
+	first = -100
+	last = 99
 	for m in bins:
 		if max_bin < bins[m]:
 			max_bin = bins[m]
-	first = min(bins)
-	last = max(bins)
+	try:
+		first = min(bins)
+		last = max(bins)
+	except:
+		return (first,last+1,None)
 	if max_bin < 200:
 		return (first,last+1,None)
 	min_bin = int(0.5 + float(max_bin)/100.0)
@@ -125,9 +130,9 @@ def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 	return sd
 
 def create_header():
-	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm\tn\tsav\trs\tmaf'
+	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tsignal\tdM\tppm\tn\tsav\trs\tmaf'
 
-def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
+def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 	if len(_ids) == 0:
 		ofile = open(_params['output file'],'w')
 		if not ofile:
@@ -139,7 +144,11 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 		print('    PSMs: %i' % (0))
 		ofile.close()
 		return
-	
+	_scores = {}
+	_intensities = {}
+	for st in _stuples:
+		_scores[st] = _stuples[st][0]
+		_intensities[st] = _stuples[st][1]
 	proteins = set([])
 	pscore_min = 200.0
 	print('     applying statistics')
@@ -185,6 +194,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 	pscore = 0.0
 	vresults = 0
 	res = _params['fragment mass tolerance']
+	minimum_intensity = _params['minimum identified intensity']
 	sfactor = 20
 	sadjust = 1
 	PSMs = 0
@@ -219,7 +229,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 				kern = _kernel[i]
 				lseq = list(kern['seq'])
 				pmass = int(kern['pm']/1000)
-				pscore = score_tuples[(j,i)]
+				pscore = score_tuples[(j,i)]*_intensities[j]/100.0
 				if pscore < pscore_min and valid_only:
 					break
 				delta = _spectra[j]['pm']-kern['pm']
@@ -227,6 +237,8 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 				if delta/1000.0 > 0.9:
 					ppm = 1.0e6*(delta-1003.0)/kern['pm']
 				if ppm < low or ppm > high:
+					continue
+				if _intensities[j] < minimum_intensity:
 					continue
 				if x == 0 and delta/1000.0 > 0.9:
 					parent_a[1] += 1
@@ -285,7 +297,7 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 								ptm_aaa[ptm] = {aa:1}
 							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
 				line = re.sub(';$','',line)
-				line += '\t%i\t%.0f\t%.3f\t%i' % (_scores[j],pscore,delta/1000,round(ppm,0))
+				line += '\t%i\t%.0f\t%.0f\t%.3f\t%i' % (_scores[j],pscore,_intensities[j],delta/1000,round(ppm,0))
 				line += '\t%i' % (sum(kern['ns']))
 				if 'sav' in kern:
 					line += '\t%s%i%s\t%s\t%.2f' % (kern['res'],kern['pos'],kern['sav'],kern['rsn'],kern['maf'])
@@ -301,6 +313,19 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 				PSMs += 1
 				
 	ofile.close()
+	hist = [0]*101
+	for a in _intensities:
+		v = int(_intensities[a])
+		if v <= 100:
+			hist[v] += 1
+	hist[0] = 0
+	v = 0
+	total = sum(hist)
+	int_hist = []
+	for v in range(100):
+			int_hist.append((v,hist[v],float(sum(hist[0:v])/total)))
+			
+
 	if PSMs == 0:
 		print('\n2. Output parameters:')
 		print('    output file: %s' % (_params['output file']))
@@ -347,5 +372,9 @@ def tsv_file(_ids,_scores,_spectra,_kernel,_job_stats,_params):
 		print('    parent A: A0 = %i (%.1f), A1 = %i (%.1f)' % (parent_a[0],100*parent_a[0]/total,parent_a[1],100*parent_a[1]/total))
 	else:
 		print('    parent A: A0 = %i, A1 = %i' % (parent_a[0],parent_a[1]))
+	if len(_intensities) > 10:
+		arr = [_intensities[a] for a in _intensities if _intensities[a] >= minimum_intensity]
+		print('    signal mean (%%): %.1f' % (tmean(arr)))
+		print('    signal sd (%%): %.1f' % (tstd(arr)))
 	return
 

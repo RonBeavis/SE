@@ -31,6 +31,7 @@ def perform_ids(_s,_k,_list,_param):
 	score = 0
 	b_score = 6
 	best_score = 0
+	best_intensity = 0.0
 	ident = []
 #
 #	indicate progress to user
@@ -53,25 +54,31 @@ def perform_ids(_s,_k,_list,_param):
 #
 		ks = _list[a]
 		best_score = b_score
+		best_intensity = 0.0
 		ident = []
-		s_set = set(s['sms'])
+#		s_set = set(s['sms'])
+		s_set = dict(zip(s['sms'],s['ims']))
 #
 #		iterate through kernels on the list
 #		and track scoring
 #
 		for k in ks:
-			score = score_id(s_set,_k[k])
+			(score,intensity) = score_id(s_set,_k[k])
 			if score > best_score:
 				best_score = score
 				ident = []
+				f = 100.0*intensity/s['isum']
+				best_intensity = f
 				ident.append(k)
 			elif score == best_score:
+				f = 100.0*intensity/s['isum']
+				best_intensity = f
 				ident.append(k)
 #
 #		record PSM results
 #
 		ids[a] = ident
-		scores[a] = best_score
+		scores[a] = (best_score,best_intensity)
 		a += 1
 #
 #		indicate progress to user
@@ -87,8 +94,10 @@ def perform_ids(_s,_k,_list,_param):
 
 def score_id(_s,_k):
 	c = 0
+	i = 0
 	for k in _k:
 		if k in _s:
 			c += 1
-	return c
+			i += _s[k]
+	return (c,i)
 
