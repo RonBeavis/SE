@@ -324,6 +324,7 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 				if use_bcid:
 					line += '\t%s' % (mhash.hexdigest())
 				line += '\n'
+				ofile.write(line)
 				PSMs += 1
 				
 	ofile.close()
