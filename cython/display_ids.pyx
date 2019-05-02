@@ -49,8 +49,14 @@ def get_modifications():
 #
 def display_parameters(_params):
 	print('\nInput parameters:')
+	summary = ''
 	for j in sorted(_params,reverse=True):
-		print('     %s: %s' % (j,str(_params[j])))
+		summary += '     %s: %s\n' % (j,str(_params[j]))
+	print(summary)
+	f = open(_params['output file'] + '.summary','w')
+	ss = [re.sub('^(.+?)\: +',r'\1	',l.lstrip()) for l in summary.split('\n')]
+	f.write('\n'.join(ss))
+	f.close()
 
 cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _st,double _mins):
 	cdef dict bins = {}
@@ -340,55 +346,65 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 	cdef list int_hist = []
 	for v in range(100):
 			int_hist.append((v,hist[v],float(sum(hist[0:v])/total)))
+	summary = ''
 	if PSMs == 0:
 		print('\n2. Output parameters:')
-		print('    output file: %s' % (_params['output file']))
-		print('    PSMs: %i' % (PSMs))
-		ofile.close()
+		summary += '    output file: %s\n' % (_params['output file'])
+		summary += '    PSMs: %i\n' % (PSMs)
+		print(summary)
+		f = open(_params['output file'] + '.summary','a')
+		ss = [l.lstrip() for l in summary.split('\n')]
+		f.write('\n'.join(ss))
+		f.close()
 		return
 
 	print('\n2. Output parameters:')
-	print('    output file: %s' % (_params['output file']))
-	print('    PSMs:')
-	print('          total: %i' % (PSMs))
-	print('          unique: %i' % (len(unique_psms)))
-	print('    proteins: %i' % len(proteins))
-	print('    parent ppms: (%i,%i)' % (_params['output low ppm'],_params['output high ppm']))
-	print('    charges:')
+	summary += '    output file: %s\n' % (_params['output file'])
+	summary += '    PSMs:\n'
+	summary += '          total: %i\n' % (PSMs)
+	summary += '          unique: %i\n' % (len(unique_psms))
+	summary += '    proteins: %i\n' % len(proteins)
+	summary += '    parent ppms: (%i,%i)\n' % (_params['output low ppm'],_params['output high ppm'])
+	summary += '    charges:\n'
 	for z in sorted(z_list):
-		print('          %i: %i' % (z,z_list[z]))
-	print('    modifications:')
+		summary += '          %i: %i\n' % (z,z_list[z])
+	summary += '    modifications:\n'
 	for ptm in sorted(ptm_list, key=lambda s: s.casefold()):
 		aa_line = ''
 		for aa in sorted(ptm_aaa[ptm]):
 			aa_line += '%s[%i] ' % (aa,ptm_aaa[ptm][aa])
-		print('          %s: %s= %i' % (ptm,aa_line,ptm_list[ptm]))
+		summary += '          %s: %s= %i\n' % (ptm,aa_line,ptm_list[ptm])
 	if DECOYs > 0:
-		print('    decoys:')
-		print('       total: %i' % (DECOYs))
+		summary += '    decoys:\n'
+		summary += '       total: %i\n' % (DECOYs)
 
-	print('    SAVs:')
-	print('       total: %i' % (SAVs))
+	summary += '    SAVs:\n'
+	summary += '       total: %i\n' % (SAVs)
 	if SAVs > 0:
-		print('       unique: %i' % (len(sav_mafs)))
+		summary += '       unique: %i\n' % (len(sav_mafs))
 		power = 1.0
 		for maf in sav_mafs:
 			if sav_mafs[maf] is not None and sav_mafs[maf] != 0.0:
 				power *= sav_mafs[maf]
-		print('       power: %.2e:1' % (1.0/power))
+		summary += '       power: %.2e:1\n' % (1.0/power)
 	if len(parent_delta) > 10:
-		print('    parent delta mean (Da): %.3f' % (tmean(parent_delta)))
-		print('    parent delta sd (Da): %.3f' % (tstd(parent_delta)))
-		print('    parent delta mean (ppm): %.1f' % (tmean(parent_delta_ppm)))
-		print('    parent delta sd (ppm): %.1f' % (tstd(parent_delta_ppm)))
+		summary += '    parent delta mean (Da): %.3f\n' % (tmean(parent_delta))
+		summary += '    parent delta sd (Da): %.3f\n' % (tstd(parent_delta))
+		summary += '    parent delta mean (ppm): %.1f\n' % (tmean(parent_delta_ppm))
+		summary += '    parent delta sd (ppm): %.1f\n' % (tstd(parent_delta_ppm))
 	total = float(parent_a[0]+parent_a[1])
 	if total > 0:
-		print('    parent A: A0 = %i (%.1f), A1 = %i (%.1f)' % (parent_a[0],100*parent_a[0]/total,parent_a[1],100*parent_a[1]/total))
+		summary += '    parent A: A0 = %i (%.1f%%), A1 = %i (%.1f%%)\n' % (parent_a[0],100*parent_a[0]/total,parent_a[1],100*parent_a[1]/total)
 	else:
-		print('    parent A: A0 = %i, A1 = %i' % (parent_a[0],parent_a[1]))
+		summary += '    parent A: A0 = %i, A1 = %i' % (parent_a[0],parent_a[1])
 	if len(_intensities) > 10:
 		arr = [_intensities[a] for a in _intensities if _intensities[a] >= minimum_intensity]
-		print('    signal mean (%%): %.1f' % (tmean(arr)))
-		print('    signal sd (%%): %.1f' % (tstd(arr)))
+		summary += '    signal mean (%%): %.1f\n' % (tmean(arr))
+		summary += '    signal sd (%%): %.1f\n' % (tstd(arr))
+	print(summary)
+	f = open(_params['output file'] + '.summary','a')
+	ss = [re.sub('^(.+?)\: +',r'\1	',l.lstrip()) for l in summary.split('\n')]
+	f.write('\n'.join(ss))
+	f.close()
 	return True
 
