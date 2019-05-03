@@ -150,6 +150,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 	cdef long pm = 0
 	cdef long beg = 0
 	cdef str seq = ''
+	cdef str pre = ''
 	cdef long s = 0
 	q_ammonia_loss = False
 	c_ammonia_loss = False
@@ -178,6 +179,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 		pm = js_master['pm']
 		beg = js_master['beg']
 		seq = js_master['seq']
+		pre = js_master['pre']
 #
 # 		generate fixed modification information
 #
@@ -187,7 +189,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 #
 		
 		(v_mods,depth) = check_motifs(seq,default_v_mods,default_depth)
-		v_pos = generate_vd(v_mods,seq)
+		v_pos = generate_vd(v_mods,seq,pre)
 		v_stack = generate_vstack(v_mods,v_pos,depth)
 
 		ok = False
@@ -459,16 +461,20 @@ cdef list generate_vstack(dict _mods,dict _pos,long _depth = 3):
 # method to locate possible variable modification sites in a sequence
 #
 
-cdef dict generate_vd(dict _mods,str _seq):
+cdef dict generate_vd(dict _mods,str _seq,str _pre):
 	keep = False
 	cdef dict v_pos = {}
 	cdef long ls = len(_seq)
 	cdef str v = ''
+	bNt = True
+	if _pre == 'G' and '[' in _mods:
+		if _mods['['][0] == 57021:
+			bNt = False
 	for v in _mods:
 		v_pos[v] = []
 		if _mods.get(v) == 0:
 			continue
-		if v == '[':
+		if v == '[' and bNt:
 			v_pos[v] = [0]
 			keep = True
 		elif v == ']':

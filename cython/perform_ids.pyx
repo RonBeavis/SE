@@ -31,6 +31,7 @@ def perform_ids(_s,_k,_list,_param):
 	score = 0
 	b_score = 6
 	best_score = 0
+	best_intensity = 0
 	ident = []
 #
 #	indicate progress to user
@@ -53,6 +54,7 @@ def perform_ids(_s,_k,_list,_param):
 #
 		ks = _list[a]
 		best_score = b_score
+		best_intensity = 0
 		ident = []
 #		s_set = set(s['sms'])
 		s_set = dict(zip(s['sms'],s['ims']))
