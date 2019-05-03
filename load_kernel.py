@@ -122,6 +122,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 	spectrum_list = {}
 	p_pos = {}
 	v_pos = {}
+	pre = ''
 	(s_index,s_masses) = create_index(_s,ires)
 #
 # 	show activity to the user
@@ -179,6 +180,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 		pm = js_master['pm']
 		beg = js_master['beg']
 		seq = js_master['seq']
+		pre = js_master['pre']
 #
 # 		generate fixed modification information
 #
@@ -188,7 +190,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 #
 		
 		(v_mods,depth) = check_motifs(seq,default_v_mods,default_depth)
-		v_pos = generate_vd(v_mods,seq)
+		v_pos = generate_vd(v_mods,seq,pre)
 		v_stack = generate_vstack(v_mods,v_pos,depth)
 
 		ok = False
@@ -460,16 +462,20 @@ def generate_vstack(_mods,_pos,_depth = 3):
 # method to locate possible variable modification sites in a sequence
 #
 
-def generate_vd(_mods,_seq):
+def generate_vd(_mods,_seq,_pre):
 	keep = False
 	v_pos = {}
 	ls = len(_seq)
 	v = ''
+	bNt = True
+	if _pre == 'G' and '[' in _mods:
+		if _mods['['][0] == 57021:
+			bNt = False
 	for v in _mods:
 		v_pos[v] = []
 		if _mods.get(v) == 0:
 			continue
-		if v == '[':
+		if v == '[' and bNt:
 			v_pos[v] = [0]
 			keep = True
 		elif v == ']':
