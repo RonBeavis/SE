@@ -30,6 +30,10 @@ def perform_ids(_s,_k,_list,_param):
 	ires = float(_param['fragment mass tolerance'])
 	score = 0
 	b_score = 6
+	if ires > 50:
+		b_score = 7
+	if ires > 100:
+		b_score = 8
 	best_score = 0
 	best_intensity = 0
 	ident = []
@@ -65,14 +69,18 @@ def perform_ids(_s,_k,_list,_param):
 #
 		for k in ks:
 			(score,intensity) = score_id(s_set,_k[k])
+			f = 100.0*intensity/s['isum']
 			if score > best_score:
 				best_score = score
 				ident = []
-				f = 100.0*intensity/s['isum']
 				best_intensity = f
 				ident.append(k)
-			elif score == best_score:
-				f = 100.0*intensity/s['isum']
+			elif score == best_score and f > best_intensity:				
+				best_score = score
+				ident = []
+				best_intensity = f
+				ident.append(k)
+			elif score == best_score and f == best_intensity:
 				best_intensity = f
 				ident.append(k)
 #

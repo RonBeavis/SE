@@ -10,15 +10,14 @@
 #
 # some handy lists of masses, in integer milliDaltons
 #
-from __future__ import print_function
-from libcpp cimport bool as bool_t
+#from __future__ import print_function
+#from libcpp cimport bool as bool_t
 
 import re
 import json
 import hashlib
 from scipy.stats import hypergeom,tmean,tstd
-#import math
-from libc.math cimport log10
+import math
 
 #
 # retrieves a list of modification masses and names for use in displays
@@ -58,9 +57,8 @@ def display_parameters(_params):
 	f.write('\n'.join(ss))
 	f.close()
 
-cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _st,double _mins):
-	cdef dict bins = {}
-	cdef long j = 0
+def find_limits(_w,_ids,_spectra,_kernel,_st,_mins):
+	bins = {}
 	for j in _ids:
 		if not _ids[j]:
 			continue
@@ -80,13 +78,9 @@ cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _st,dou
 				else:
 					bins[delta] = 1
 			break
-	cdef long max_bin = 0
-	cdef long m = 0
-	for m in bins:
-		if max_bin < bins[m]:
-			max_bin = bins[m]
-	cdef long first = -100
-	cdef long last = 99
+	max_bin = 0
+	first = -100
+	last = 99
 	for m in bins:
 		if max_bin < bins[m]:
 			max_bin = bins[m]
@@ -95,35 +89,28 @@ cdef tuple find_limits(long _w,dict _ids,list _spectra,list _kernel,dict _st,dou
 		last = max(bins)
 	except:
 		return (first,last+1,None)
-	cdef long min_bin = int(0.5 + float(max_bin)/100.0)
-	cdef long low = -100000000
-	cdef long high = last
-	while first <= last:
+	if max_bin < 200:
+		return (first,last+1,None)
+	min_bin = int(0.5 + float(max_bin)/100.0)
+	low = None
+	high = last
+	first += 1
+	while first < last:
 		if first in bins:
-			if low is -100000000 and bins[first] >= min_bin:
+			if low is None and (bins[first] >= min_bin and bins[first+1] >= min_bin):
 				low = first
-			if bins[first] >= min_bin:
+			if bins[first] >= min_bin and bins[first-1] >= min_bin:
 				high = first
 		first += 1
 	return (low,high,bins)
 
-cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict _params):
-	cdef long res = _params['fragment mass tolerance']
-	cdef long sfactor = 20
-	cdef long sadjust = 1
+def generate_scores(_ids,_scores,_spectra,_kernel,_params):
+	res = _params['fragment mass tolerance']
+	sfactor = 20
+	sadjust = 1
 	if res > 100:
 		sfactor = 40
-	cdef dict sd = {}
-	cdef long j = 0
-	cdef long i = 0
-	cdef double pscore = 0.0
-	cdef double p = 0.0
-	cdef list lseq = []
-	cdef long cells = 0
-	cdef long total_ions = 0
-	cdef dict kern = {}
-	cdef long pmass= 0
-	cdef double sc = 0.0
+	sd = {}
 	for j in _ids:
 		p_score = 0.0
 		if not _ids[j]:
@@ -140,19 +127,19 @@ cdef dict generate_scores(dict _ids,dict _scores,list _spectra,list _kernel,dict
 				total_ions = sfactor
 			if total_ions < _scores[j]:
 				total_ions = _scores[j] + 1
-			sc = len(_spectra[j]['sms'])/3.0
+			sc = len(_spectra[j]['sms'])/3
 			if _scores[j] >= sc:
-				sc = _scores[j] + 2.0
+				sc = _scores[j] + 2
 			rv = hypergeom(cells,total_ions,sc)
 			p = rv.pmf(_scores[j])
-			pscore = -100.0*log10(p)*sadjust
+			pscore = -100.0*math.log10(p)*sadjust
 			sd[(j,i)] = pscore
 	return sd
 
-cdef str create_header():
-	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tdM\tppm\tn\tsav\trs\tmaf'
+def create_header():
+	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tsignal\tdM\tppm\tn\tsav\trs\tmaf'
 
-def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,dict _params):
+def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 	if len(_ids) == 0:
 		ofile = open(_params['output file'],'w')
 		if not ofile:
@@ -163,15 +150,14 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 		print('    output file: %s' % (_params['output file']))
 		print('    PSMs: %i' % (0))
 		ofile.close()
-		return True
-	
-	cdef dict _scores = {}
-	cdef dict _intensities = {}
+		return
+	_scores = {}
+	_intensities = {}
 	for st in _stuples:
 		_scores[st] = _stuples[st][0]
 		_intensities[st] = _stuples[st][1]
-	cdef set proteins = set([])
-	cdef double pscore_min = 200.0
+	proteins = set([])
+	pscore_min = 200.0
 	print('     applying statistics')
 	score_tuples = generate_scores(_ids,_scores,_spectra,_kernel,_params)
 	(low,high,bins) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,score_tuples,pscore_min)
@@ -180,8 +166,8 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 	_params['output histogram ppm'] = bins
 	outfile = _params['output file']
 	print('     storing results in "%s"' % (outfile))
-	cdef dict modifications = get_modifications()
-	cdef double proton = 1.007276
+	modifications = get_modifications()
+	proton = 1.007276
 	print('\n1. Job statistics:')
 	for j in sorted(_job_stats,reverse=True):
 		if j.find('time') == -1:
@@ -198,30 +184,30 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 	use_bcid = False
 	if 'output bcid' in _params:
 		use_bcid = _params['output bcid']
-	cdef long valid_ids = 0
+	valid_ids = 0
 	line = create_header()
 	if use_bcid:
 		line += '\tbcid'
 	line += '\n'
 	ofile.write(line)
-	cdef long psm = 1
-	cdef dict z_list = {}
-	cdef dict ptm_list = {}
-	cdef dict ptm_aaa = {}
-	cdef set unique_psms = set([])
-	cdef list parent_delta = []
-	cdef list parent_delta_ppm = []
-	cdef list parent_a = [0,0]
-	cdef double pscore = 0.0
-	cdef long vresults = 0
-	cdef long res = _params['fragment mass tolerance']
-	cdef double minimum_intensity = _params['minimum identified intensity']
-	cdef long sfactor = 20
-	cdef double sadjust = 1.0
-	cdef long PSMs = 0
-	cdef long SAVs = 0
-	cdef long DECOYs = 0
-	cdef dict sav_mafs = {}
+	psm = 1
+	z_list = {}
+	ptm_list = {}
+	ptm_aaa = {}
+	unique_psms = set([])
+	parent_delta = []
+	parent_delta_ppm = []
+	parent_a = [0,0]
+	pscore = 0.0
+	vresults = 0
+	res = _params['fragment mass tolerance']
+	minimum_intensity = _params['minimum identified intensity']
+	sfactor = 20
+	sadjust = 1
+	PSMs = 0
+	SAVs = 0
+	DECOYs = 0
+	sav_mafs = {}
 	if res > 100:
 		sfactor = 40
 		sadjust = 0.5
@@ -277,10 +263,10 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 					z_list[z] = 1
 				mhash = hashlib.sha256()
 				lb = kern['lb']
-				proteins.add(lb)
 				if lb.find('decoy-') == 0:
 					DECOYs += 1
 				unique_psms.add(scan)
+				proteins.add(lb)
 				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
 				psm += 1
 				line += '%i\t%i\t%s\t%s\t%s\t' % (kern['beg'],kern['end'],kern['pre'],kern['seq'],kern['post'])
@@ -318,7 +304,7 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 								ptm_aaa[ptm] = {aa:1}
 							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
 				line = re.sub(';$','',line)
-				line += '\t%i\t%.0f\t%.3f\t%i' % (_scores[j],pscore,delta/1000,round(ppm,0))
+				line += '\t%i\t%.0f\t%.0f\t%.3f\t%i' % (_scores[j],pscore,_intensities[j],delta/1000,round(ppm,0))
 				line += '\t%i' % (sum(kern['ns']))
 				if 'sav' in kern:
 					line += '\t%s%i%s\t%s\t%.2f' % (kern['res'],kern['pos'],kern['sav'],kern['rsn'],kern['maf'])
@@ -334,18 +320,18 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 				PSMs += 1
 				
 	ofile.close()
-	cdef list hist = [0]*101
-	cdef float a = 0.0
+	hist = [0]*101
 	for a in _intensities:
 		v = int(_intensities[a])
 		if v <= 100:
 			hist[v] += 1
 	hist[0] = 0
 	v = 0
-	cdef double total = sum(hist)
-	cdef list int_hist = []
+	total = sum(hist)
+	int_hist = []
 	for v in range(100):
 			int_hist.append((v,hist[v],float(sum(hist[0:v])/total)))
+			
 	summary = ''
 	if PSMs == 0:
 		print('\n2. Output parameters:')
@@ -406,5 +392,5 @@ def tsv_file(dict _ids,dict _stuples,list _spectra,list _kernel,dict _job_stats,
 	ss = [re.sub('^(.+?)\: +',r'\1	',l.lstrip()) for l in summary.split('\n')]
 	f.write('\n'.join(ss))
 	f.close()
-	return True
+	return
 
