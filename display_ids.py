@@ -94,11 +94,12 @@ def find_limits(_w,_ids,_spectra,_kernel,_st,_mins):
 	min_bin = int(0.5 + float(max_bin)/100.0)
 	low = None
 	high = last
-	while first <= last:
+	first += 1
+	while first < last:
 		if first in bins:
-			if low is None and bins[first] >= min_bin:
+			if low is None and (bins[first] >= min_bin and bins[first+1] >= min_bin):
 				low = first
-			if bins[first] >= min_bin:
+			if bins[first] >= min_bin and bins[first-1] >= min_bin:
 				high = first
 		first += 1
 	return (low,high,bins)

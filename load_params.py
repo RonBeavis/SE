@@ -79,6 +79,8 @@ def load_params(_argv):
 		if v.find('-') == 0:
 			if i + 1 < len(_argv):
 				u = _argv[i+1]
+			elif v.find('-h') == 0:
+				pass
 			else:
 				continue
 		else:
@@ -208,7 +210,7 @@ def load_params(_argv):
 		         formats: JSMS, MGF or mzML
 		   -m: fixed modifications list (MASS1@X,MASS2@Y ...)
 		   -v: variable modifications list (MASS1@X,MASS2@Y ...)
-		   -i: minimum %% intensity
+		   -i: minimum % intensity
 		   -l: list names and associated masses in mDa (isos|aas|mods)
 		         types: isos = isotopes, 
 		                aas = aa residues,
