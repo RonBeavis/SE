@@ -118,7 +118,6 @@ def find_limits(_w,_ids,_spectra,_kernel,_st,_mins):
 			break
 		m += 1
 	high -= 1
-	print(low,high,bins)
 	return (low,high,bins)
 
 def generate_scores(_ids,_scores,_spectra,_kernel,_params):
