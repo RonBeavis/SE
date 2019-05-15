@@ -20,7 +20,7 @@ from display_ids import tsv_file,display_parameters
 def main():
 	print('started ...\n')
 	start = time.time()
-	job_stats = {'Software': 'SE','Software version': '2019.05.01.1'}
+	job_stats = {'Software': 'SE','Software version': '2019.06.01.1'}
 	job_stats['Start'] = str(datetime.datetime.now())
 #	
 #	load command line parameters and test for errors
@@ -55,8 +55,10 @@ def main():
 	spectrum_list = {}
 	k = 0
 	qn = 0
+	rcounts = 0
 	for kf in kfs:
-		(kern,km,s_list,k1,qn) = load_kernel(kf,spectra,params,qn)
+		(kern,km,s_list,k1,qn,rc) = load_kernel(kf,spectra,params,qn)
+		rcounts += rc
 		kernel += kern
 		kmass += km
 		for s in s_list:
@@ -70,6 +72,7 @@ def main():
 	delta = time.time()-start
 	job_stats['Load time kernel'] = delta
 	print('   %.3f s' % (delta))
+	job_stats['Redundant peptides'] = rcounts
 	start = time.time() 
 #
 #	generate identifications

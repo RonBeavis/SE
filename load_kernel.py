@@ -55,10 +55,11 @@ def load_kernel(_f,_s,_param,_qi):
 		freq = int(_param['minimum peptide frequency'])
 	labels = {}
 	r = 0
-	(qs,qm,spectrum_list,t,qn) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
-	return (qs,qm,spectrum_list,t,qn)
+	(qs,qm,spectrum_list,t,qn,rc) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
+	return (qs,qm,spectrum_list,t,qn,rc)
 
 def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
+	redundancy = {}
 	motif_proteins = set([])
 	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
@@ -158,6 +159,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 	ok = False
 	bIaa = False
 	appended = False
+	r_count = 0
 	for l in f:
 #
 # 		show activity to the user
@@ -175,12 +177,39 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 			continue
 		if _r == 0:
 			if sum(js_master['ns']) < _freq:
+				t += 1
 				continue
 
 		pm = js_master['pm']
 		beg = js_master['beg']
 		seq = js_master['seq']
 		pre = js_master['pre']
+		n_term = seq[:1]
+		r_value = 2
+		if 'sav' not in js_master:
+			r_value = check_redundancy(seq,redundancy,qs,js_master)
+		r_value_a = 0
+		if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
+			r_value_a = check_redundancy(seq+'+a',redundancy,qs,js_master)
+
+		q_ammonia_loss = False
+		c_ammonia_loss = False
+		if nt_ammonia and n_term == 'Q':
+			q_ammonia_loss = True
+		if nt_ammonia and n_term == 'C':
+			c_ammonia_loss = True
+		water_loss = False
+		if nt_water and n_term == 'E':
+			water_loss = True
+		r_value_q = 0
+		if q_ammonia_loss or c_ammonia_loss or water_loss:
+			r_value_q = check_redundancy(seq+'+q',redundancy,qs,js_master)
+
+		if r_value != 2 and r_value_a != 2 and r_value_q != 2:
+			r_count += 1
+			t += 1
+			continue
+
 #
 # 		generate fixed modification information
 #
@@ -200,22 +229,15 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 #
 # 		check for special case peptide N-terminal cyclization at Q, C or E
 #
-		n_term = seq[:1]
-		q_ammonia_loss = False
-		c_ammonia_loss = False
-		if nt_ammonia and n_term == 'Q':
-			q_ammonia_loss = True
-		if nt_ammonia and n_term == 'C':
-			c_ammonia_loss = True
-		water_loss = False
-		if nt_water and n_term == 'E':
-			water_loss = True
 #
 #		Make copies of the arrays in js_master
 #
 		js_bs = list(js_master['bs'])
 		js_ys = list(js_master['ys'])
 		js_pm = js_master['pm']
+		testAcetyl = False
+		testWater = False
+
 		for lp in range(lp_len):
 			bIaa = False
 			if 'C' in p_mods:
@@ -230,10 +252,13 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 				p_pos = lp_pos[lp]
 				p_total = lp_total[lp]+vs_total
 				tmass = pm+p_total
-				if use_c13 and tmass > 1500000:
-					pms = get_spectra(s_index,tmass,ires,[c13])
+				if r_value == 2:
+					if use_c13 and tmass > 1500000:
+						pms = get_spectra(s_index,tmass,ires,[c13])
+					else:
+						pms = get_spectra(s_index,tmass,ires,[])
 				else:
-					pms = get_spectra(s_index,tmass,ires,[])
+					pms = []
 				appended = False
 				jv = None
 				jc = None
@@ -262,6 +287,10 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 						if c >= c_limit:
 							if not appended:
 								qs.append(jv)
+								if seq in redundancy and redundancy[seq] is not None:
+									redundancy[seq].append(len(qs) - 1)
+								else:
+									redundancy[seq]= [len(qs) - 1]				
 								qm.append(jm)
 								appended = True
 								_labels[js_master['lb']] = 1
@@ -269,14 +298,15 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 								spectrum_list[s] = []
 							spectrum_list[s].append(qn)
 				if appended:
-					qn += 1
+					qn += 1					
 				appended = False
 				if '[' in p_mods:
 					if p_mods['['][lp] != 0:
 						continue
-				if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
+				if r_value_a == 2:
 					b_mods = []
 					y_mods = []
+					testAcetyl = True
 					tmass = pm+p_total+acetyl
 					if use_c13 and tmass > 1500000:
 						pms = get_spectra(s_index,tmass,ires,[c13])
@@ -309,7 +339,12 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 									c += 1
 							if c >= c_limit:
 								if not appended:
+									jv['isacetyl'] = 1
 									qs.append(jv)
+									if seq+'+a' in redundancy:
+										redundancy[seq+'+a'].append(len(qs) - 1)
+									else:
+										redundancy[seq+'+a']= [len(qs) - 1]				
 									qm.append(jm)
 									_labels[js_master['lb']] = 1
 									appended = True
@@ -320,9 +355,10 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 				if appended:
 					qn += 1
 				appended = False
-				if q_ammonia_loss or c_ammonia_loss or water_loss:
+				if r_value_q:
 					b_mods = []
 					y_mods = []
+					testWater = True
 					dvalue = ammonia
 					if water_loss:
 						dvalue = water
@@ -360,17 +396,46 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 								if not appended:
 									qs.append(jv)
 									qm.append(jm)
+									if seq+'+q' in redundancy:
+										redundancy[seq+'+q'].append(len(qs) - 1)
+									else:
+										redundancy[seq+'+q']= [len(qs) - 1]				
 									_labels[js_master['lb']] = 1
 									appended = True
 								if s not in spectrum_list:
 									spectrum_list[s] = []
 								spectrum_list[s].append(qn)
-
 				if appended:
 					qn += 1
-
+		if seq not in redundancy:
+			redundancy[seq] = None
+		if testWater and seq+'+q' not in redundancy:
+			redundancy[seq+'+q'] = None
+		if testAcetyl and seq+'+a' not in redundancy:
+			redundancy[seq+'+a'] = None
 		t += 1
-	return (qs,qm,spectrum_list,t,qn)
+	return (qs,qm,spectrum_list,t,qn,r_count)
+
+def check_redundancy(_seq,_redundancy,_qs,_js):
+	if _seq in _redundancy:
+		if _redundancy[_seq] is None:
+			return 0
+		vs = _redundancy[_seq]
+		for v in vs:
+			if 'vlb' not in _qs[v]:
+				_qs[v]['vlb'] = [_js['lb']]
+				_qs[v]['vpre'] = [_js['pre']]
+				_qs[v]['vpost'] = [_js['post']]
+				_qs[v]['vbeg'] = [_js['beg']]
+				_qs[v]['vend'] = [_js['end']]
+			else:
+				_qs[v]['vlb'].append(_js['lb'])
+				_qs[v]['vpre'].append(_js['pre'])
+				_qs[v]['vpost'].append(_js['post'])
+				_qs[v]['vbeg'].append(_js['beg'])
+				_qs[v]['vend'].append(_js['end'])
+		return 1
+	return 2
 
 def check_motifs(_seq,_d_mods,_depth):
 	dcoll = len(re.findall('(?=(G.PG))', _seq))
