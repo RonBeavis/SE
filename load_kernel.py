@@ -160,6 +160,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 	bIaa = False
 	appended = False
 	r_count = 0
+	redundant = True
 	for l in f:
 #
 # 		show activity to the user
@@ -186,11 +187,12 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 		pre = js_master['pre']
 		n_term = seq[:1]
 		r_value = 2
-		if 'sav' not in js_master:
-			r_value = check_redundancy(seq,redundancy,qs,js_master)
+		if 'sav' in js_master:
+			redundant = False
+		r_value = check_redundancy(seq,redundancy,qs,js_master,redundant)
 		r_value_a = 0
 		if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
-			r_value_a = check_redundancy(seq+'+a',redundancy,qs,js_master)
+			r_value_a = check_redundancy(seq+'+a',redundancy,qs,js_master,redundant)
 
 		q_ammonia_loss = False
 		c_ammonia_loss = False
@@ -203,7 +205,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 			water_loss = True
 		r_value_q = 0
 		if q_ammonia_loss or c_ammonia_loss or water_loss:
-			r_value_q = check_redundancy(seq+'+q',redundancy,qs,js_master)
+			r_value_q = check_redundancy(seq+'+q',redundancy,qs,js_master,redundant)
 
 		if r_value != 2 and r_value_a != 2 and r_value_q != 2:
 			r_count += 1
@@ -237,6 +239,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 		js_pm = js_master['pm']
 		testAcetyl = False
 		testWater = False
+		jvs = set()
 
 		for lp in range(lp_len):
 			bIaa = False
@@ -285,18 +288,21 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 							if k in sms:
 								c += 1
 						if c >= c_limit:
-							if not appended:
-								qs.append(jv)
-								if seq in redundancy and redundancy[seq] is not None:
-									redundancy[seq].append(len(qs) - 1)
-								else:
-									redundancy[seq]= [len(qs) - 1]				
-								qm.append(jm)
-								appended = True
-								_labels[js_master['lb']] = 1
-							if s not in spectrum_list:
-								spectrum_list[s] = []
-							spectrum_list[s].append(qn)
+							jstr = ujson.dumps(jv['mods'])
+							if jstr not in jvs:
+								if not appended:
+									qs.append(jv)
+									jvs.add(jstr)
+									if redundant and seq in redundancy:
+										redundancy[seq].append(len(qs) - 1)
+									elif redundant:
+										redundancy[seq]= [len(qs) - 1]				
+									qm.append(jm)
+									appended = True
+									_labels[js_master['lb']] = 1
+								if s not in spectrum_list:
+									spectrum_list[s] = []
+								spectrum_list[s].append(qn)
 				if appended:
 					qn += 1					
 				appended = False
@@ -338,19 +344,21 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 								if k in sms:
 									c += 1
 							if c >= c_limit:
-								if not appended:
-									jv['isacetyl'] = 1
-									qs.append(jv)
-									if seq+'+a' in redundancy:
-										redundancy[seq+'+a'].append(len(qs) - 1)
-									else:
-										redundancy[seq+'+a']= [len(qs) - 1]				
-									qm.append(jm)
-									_labels[js_master['lb']] = 1
-									appended = True
-								if s not in spectrum_list:
-									spectrum_list[s] = []
-								spectrum_list[s].append(qn)
+								jstr = ujson.dumps(jv['mods'])
+								if jstr not in jvs:
+									if not appended:
+										qs.append(jv)
+										jvs.add(jstr)
+										if redundant and seq+'+a' in redundancy:
+											redundancy[seq+'+a'].append(len(qs) - 1)
+										elif redundant:
+											redundancy[seq+'+a']= [len(qs) - 1]				
+										qm.append(jm)
+										_labels[js_master['lb']] = 1
+										appended = True
+									if s not in spectrum_list:
+										spectrum_list[s] = []
+									spectrum_list[s].append(qn)
 
 				if appended:
 					qn += 1
@@ -393,30 +401,35 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 								if k in sms:
 									c += 1
 							if c >= c_limit:
-								if not appended:
-									qs.append(jv)
-									qm.append(jm)
-									if seq+'+q' in redundancy:
-										redundancy[seq+'+q'].append(len(qs) - 1)
-									else:
-										redundancy[seq+'+q']= [len(qs) - 1]				
-									_labels[js_master['lb']] = 1
-									appended = True
-								if s not in spectrum_list:
-									spectrum_list[s] = []
-								spectrum_list[s].append(qn)
+								jstr = ujson.dumps(jv['mods'])
+								if jstr not in jvs:
+									if not appended:
+										qs.append(jv)
+										jvs.add(jstr)
+										qm.append(jm)
+										if redundant and seq+'+q' in redundancy:
+											redundancy[seq+'+q'].append(len(qs) - 1)
+										elif redundant:
+											redundancy[seq+'+q']= [len(qs) - 1]				
+										_labels[js_master['lb']] = 1
+										appended = True
+									if s not in spectrum_list:
+										spectrum_list[s] = []
+									spectrum_list[s].append(qn)
 				if appended:
 					qn += 1
-		if seq not in redundancy:
+		if redundant and seq not in redundancy:
 			redundancy[seq] = None
-		if testWater and seq+'+q' not in redundancy:
+		if redundant and testWater and seq+'+q' not in redundancy:
 			redundancy[seq+'+q'] = None
-		if testAcetyl and seq+'+a' not in redundancy:
+		if redundant and testAcetyl and seq+'+a' not in redundancy:
 			redundancy[seq+'+a'] = None
 		t += 1
 	return (qs,qm,spectrum_list,t,qn,r_count)
 
-def check_redundancy(_seq,_redundancy,_qs,_js):
+def check_redundancy(_seq,_redundancy,_qs,_js,_re):
+	if not _re:
+		return 2
 	if _seq in _redundancy:
 		if _redundancy[_seq] is None:
 			return 0
