@@ -55,10 +55,11 @@ def load_kernel(str _f,list _s,dict _param,long _qi):
 		freq = int(_param['minimum peptide frequency'])
 	cdef dict labels = {}
 	cdef long r = 0
-	(qs,qm,spectrum_list,t,qn) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
-	return (qs,qm,spectrum_list,t,qn)
+	(qs,qm,spectrum_list,t,qn,rc) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
+	return (qs,qm,spectrum_list,t,qn,rc)
 
 cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict _labels,long _r):
+	cdef dict redundancy = {}
 	cdef set motif_proteins = set([])
 	cdef dict isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
@@ -158,6 +159,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 	ok = False
 	bIaa = False
 	appended = False
+	cdef long r_count = 0
+	cdef int r_value = 0
+	cdef int r_value_a = 0
+	cdef int r_value_q = 0
 	for l in f:
 #
 # 		show activity to the user
@@ -180,6 +185,32 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 		beg = js_master['beg']
 		seq = js_master['seq']
 		pre = js_master['pre']
+
+		n_term = seq[:1]
+		r_value = 2
+		if 'sav' not in js_master:
+			r_value = check_redundancy(seq,redundancy,qs,js_master)
+		r_value_a = 0
+		if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
+			r_value_a = check_redundancy(seq+'+a',redundancy,qs,js_master)
+
+		q_ammonia_loss = False
+		c_ammonia_loss = False
+		if nt_ammonia and n_term == 'Q':
+			q_ammonia_loss = True
+		if nt_ammonia and n_term == 'C':
+			c_ammonia_loss = True
+		water_loss = False
+		if nt_water and n_term == 'E':
+			water_loss = True
+		r_value_q = 0
+		if q_ammonia_loss or c_ammonia_loss or water_loss:
+			r_value_q = check_redundancy(seq+'+q',redundancy,qs,js_master)
+
+		if r_value != 2 and r_value_a != 2 and r_value_q != 2:
+			r_count += 1
+			t += 1
+			continue
 #
 # 		generate fixed modification information
 #
@@ -197,24 +228,13 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 		b_mods = []
 		y_mods = []
 #
-# 		check for special case peptide N-terminal cyclization at Q, C or E
-#
-		n_term = seq[:1]
-		q_ammonia_loss = False
-		c_ammonia_loss = False
-		if nt_ammonia and n_term == 'Q':
-			q_ammonia_loss = True
-		if nt_ammonia and n_term == 'C':
-			c_ammonia_loss = True
-		water_loss = False
-		if nt_water and n_term == 'E':
-			water_loss = True
-#
 #		Make copies of the arrays in js_master
 #
 		js_bs = list(js_master['bs'])
 		js_ys = list(js_master['ys'])
 		js_pm = js_master['pm']
+		testAcetyl = False
+		testWater = False
 		for lp in range(lp_len):
 			bIaa = False
 			if 'C' in p_mods:
@@ -229,10 +249,13 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 				p_pos = lp_pos[lp]
 				p_total = lp_total[lp]+vs_total
 				tmass = pm+p_total
-				if use_c13 and tmass > 1500000:
-					pms = get_spectra(s_index,tmass,ires,[c13])
+				if r_value == 2:
+					if use_c13 and tmass > 1500000:
+						pms = get_spectra(s_index,tmass,ires,[c13])
+					else:
+						pms = get_spectra(s_index,tmass,ires,[])
 				else:
-					pms = get_spectra(s_index,tmass,ires,[])
+					pms = []
 				appended = False
 				jv = None
 				jc = None
@@ -261,6 +284,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 						if c >= c_limit:
 							if not appended:
 								qs.append(jv)
+								if seq in redundancy and redundancy[seq] is not None:
+									redundancy[seq].append(len(qs) - 1)
+								else:
+									redundancy[seq]= [len(qs) - 1]				
 								qm.append(jm)
 								appended = True
 								_labels[js_master['lb']] = 1
@@ -276,6 +303,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 				if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
 					b_mods = []
 					y_mods = []
+					testAcetyl = True
 					tmass = pm+p_total+acetyl
 					if use_c13 and tmass > 1500000:
 						pms = get_spectra(s_index,tmass,ires,[c13])
@@ -309,6 +337,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 							if c >= c_limit:
 								if not appended:
 									qs.append(jv)
+									if seq+'+a' in redundancy:
+										redundancy[seq+'+a'].append(len(qs) - 1)
+									else:
+										redundancy[seq+'+a']= [len(qs) - 1]				
 									qm.append(jm)
 									_labels[js_master['lb']] = 1
 									appended = True
@@ -322,6 +354,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 				if q_ammonia_loss or c_ammonia_loss or water_loss:
 					b_mods = []
 					y_mods = []
+					testWater = True
 					dvalue = ammonia
 					if water_loss:
 						dvalue = water
@@ -358,6 +391,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 							if c >= c_limit:
 								if not appended:
 									qs.append(jv)
+									if seq+'+q' in redundancy:
+										redundancy[seq+'+q'].append(len(qs) - 1)
+									else:
+										redundancy[seq+'+q']= [len(qs) - 1]				
 									qm.append(jm)
 									_labels[js_master['lb']] = 1
 									appended = True
@@ -368,8 +405,35 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 				if appended:
 					qn += 1
 
+		if seq not in redundancy:
+			redundancy[seq] = None
+		if testWater and seq+'+q' not in redundancy:
+			redundancy[seq+'+q'] = None
+		if testAcetyl and seq+'+a' not in redundancy:
+			redundancy[seq+'+a'] = None
 		t += 1
-	return (qs,qm,spectrum_list,t,qn)
+	return (qs,qm,spectrum_list,t,qn,r_count)
+
+cdef int check_redundancy(str _seq,dict _redundancy,list _qs,dict _js):
+	if _seq in _redundancy:
+		if _redundancy[_seq] is None:
+			return 0
+		vs = _redundancy[_seq]
+		for v in vs:
+			if 'vlb' not in _qs[v]:
+				_qs[v]['vlb'] = [_js['lb']]
+				_qs[v]['vpre'] = [_js['pre']]
+				_qs[v]['vpost'] = [_js['post']]
+				_qs[v]['vbeg'] = [_js['beg']]
+				_qs[v]['vend'] = [_js['end']]
+			else:
+				_qs[v]['vlb'].append(_js['lb'])
+				_qs[v]['vpre'].append(_js['pre'])
+				_qs[v]['vpost'].append(_js['post'])
+				_qs[v]['vbeg'].append(_js['beg'])
+				_qs[v]['vend'].append(_js['end'])
+		return 1
+	return 2
 
 cdef tuple check_motifs(str _seq,dict _d_mods,long _depth):
 	cdef long dcoll = len(re.findall('(?=(G.PG))', _seq))

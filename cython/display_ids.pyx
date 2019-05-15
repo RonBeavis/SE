@@ -10,14 +10,15 @@
 #
 # some handy lists of masses, in integer milliDaltons
 #
-#from __future__ import print_function
-#from libcpp cimport bool as bool_t
+from __future__ import print_function
+from libcpp cimport bool as bool_t
 
 import re
 import json
 import hashlib
 from scipy.stats import hypergeom,tmean,tstd
 import math
+import copy
 
 #
 # retrieves a list of modification masses and names for use in displays
@@ -79,11 +80,13 @@ def find_limits(_w,_ids,_spectra,_kernel,_st,_mins):
 					bins[delta] = 1
 			break
 	max_bin = 0
+	max_m = min(bins)
 	first = -100
 	last = 99
 	for m in bins:
 		if max_bin < bins[m]:
 			max_bin = bins[m]
+			max_m = m
 	try:
 		first = min(bins)
 		last = max(bins)
@@ -99,13 +102,22 @@ def find_limits(_w,_ids,_spectra,_kernel,_st,_mins):
 		if a not in bins:
 			bins[a] = 0
 		a += 1
-	first += 1
-	while first < last:
-		if low is None and (bins[first] >= min_bin and bins[first+1] >= min_bin):
-			low = first
-		if bins[first] >= min_bin and bins[first-1] >= min_bin:
-			high = first
-		first += 1
+	m = max_m
+	low = first
+	while m >= first+1:
+		if bins[m] <= min_bin and bins[m-1] <= min_bin:
+			low = m
+			break
+		m -= 1
+	low += 1
+	high = last
+	m = max_m
+	while m <= last - 1:
+		if bins[m] <= min_bin and bins[m+1] <= min_bin:
+			high = m
+			break
+		m += 1
+	high -= 1
 	return (low,high,bins)
 
 def generate_scores(_ids,_scores,_spectra,_kernel,_params):
@@ -219,7 +231,7 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 		pscore = 0.0
 		rt = ''
 		scan = ''
-		line = '-----------------------------------------------------------------------'
+		line = ''
 		if 'rt' in _spectra[j]:
 			rt = '%.1f' % _spectra[j]['rt']
 		if 'sc' in _spectra[j]:
@@ -234,94 +246,107 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 			sline = (json.dumps(_spectra[j])).encode()
 			vresults = 0
 			pscore = 0.0
-			line = '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+			line = ''
 			x = 0
 			for i in _ids[j]:
-				kern = _kernel[i]
-				lseq = list(kern['seq'])
-				pmass = int(kern['pm']/1000)
-				pscore = score_tuples[(j,i)]*_intensities[j]/100.0
-				if pscore < pscore_min and valid_only:
-					break
-				delta = _spectra[j]['pm']-kern['pm']
-				ppm = 1e6*delta/kern['pm']
-				if delta/1000.0 > 0.9:
-					ppm = 1.0e6*(delta-1003.0)/kern['pm']
-				if ppm < low or ppm > high:
-					continue
-				if _intensities[j] < minimum_intensity:
-					continue
-				if x == 0 and delta/1000.0 > 0.9:
-					parent_a[1] += 1
-					parent_delta_ppm.append(ppm)
-				elif x == 0:
-					parent_a[0] += 1
-					parent_delta.append(delta/1000.0)
-					parent_delta_ppm.append(ppm)
-				x += 1
-				valid_ids += 1
-				z = _spectra[j]['pz']
-				if z in z_list:
-					z_list[z] += 1
-				else:
-					z_list[z] = 1
-				mhash = hashlib.sha256()
-				lb = kern['lb']
-				if lb.find('decoy-') == 0:
-					DECOYs += 1
-				unique_psms.add(scan)
-				proteins.add(lb)
-				line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
-				psm += 1
-				line += '%i\t%i\t%s\t%s\t%s\t' % (kern['beg'],kern['end'],kern['pre'],kern['seq'],kern['post'])
-				for k in kern['mods']:
-					for c in k:
-						if k[c] in modifications:
-							aa = lseq[int(c)-int(kern['beg'])]
-							ptm = modifications[k[c]]
-							if ptm in ptm_list:
-								ptm_list[ptm] += 1
-							else:
-								ptm_list[ptm] = 1
-							if ptm in ptm_aaa:
-								if aa in ptm_aaa[ptm]:
-									ptm_aaa[ptm][aa] += 1
+				kn = _kernel[i]
+				kerns = [kn]
+				if 'vlb' in kn:
+					for a,lb in enumerate(kn['vlb']):
+						nk = copy.deepcopy(kn)
+						nk['lb'] = lb
+						nk['pre'] = kn['vpre'][a]
+						nk['post'] = kn['vpost'][a]
+						nk['beg'] = kn['vbeg'][a]
+						nk['end'] = kn['vend'][a]
+						kerns.append(nk)
+				for kern in kerns:
+					line = ''
+					lseq = list(kern['seq'])
+					pmass = int(kern['pm']/1000)
+					pscore = score_tuples[(j,i)]*_intensities[j]/100.0
+					if pscore < pscore_min and valid_only:
+						break
+					delta = _spectra[j]['pm']-kern['pm']
+					ppm = 1e6*delta/kern['pm']
+					if delta/1000.0 > 0.9:
+						ppm = 1.0e6*(delta-1003.0)/kern['pm']
+					if ppm < low or ppm > high:
+						continue
+					if _intensities[j] < minimum_intensity:
+						continue
+					if x == 0 and delta/1000.0 > 0.9:
+						parent_a[1] += 1
+						parent_delta_ppm.append(ppm)
+					elif x == 0:
+						parent_a[0] += 1
+						parent_delta.append(delta/1000.0)
+						parent_delta_ppm.append(ppm)
+					x += 1
+					valid_ids += 1
+					z = _spectra[j]['pz']
+					if z in z_list:
+						z_list[z] += 1
+					else:
+						z_list[z] = 1
+					mhash = hashlib.sha256()
+					lb = kern['lb']
+					if lb.find('decoy-') == 0:
+						DECOYs += 1
+					unique_psms.add(scan)
+					proteins.add(lb)
+					line = '%i\t%i\t%s\t%s\t%.3f\t%i\t%s\t' % (psm,j+1,scan,rt,proton + (_spectra[j]['pm']/1000.0)/_spectra[j]['pz'],_spectra[j]['pz'],lb)
+					psm += 1
+					line += '%i\t%i\t%s\t%s\t%s\t' % (kern['beg'],kern['end'],kern['pre'],kern['seq'],kern['post'])
+					for k in kern['mods']:
+						for c in k:
+							diff = kern['beg'] - kn['beg']
+							if k[c] in modifications:
+								aa = lseq[int(c+diff)-int(kern['beg'])]
+								ptm = modifications[k[c]]
+								if ptm in ptm_list:
+									ptm_list[ptm] += 1
 								else:
-									ptm_aaa[ptm].update({aa:1})
-							else:
-								ptm_aaa[ptm] = {aa:1}
+									ptm_list[ptm] = 1
+								if ptm in ptm_aaa:
+									if aa in ptm_aaa[ptm]:
+										ptm_aaa[ptm][aa] += 1
+									else:
+										ptm_aaa[ptm].update({aa:1})
+								else:
+									ptm_aaa[ptm] = {aa:1}
 
-							line += '%s%s+%s;' % (aa,c,modifications[k[c]])
-						else:
-							ptm = '%.3f' % (float(k[c])/1000.0)
-							aa = lseq[int(c)-int(kern['beg'])]
-							if ptm in ptm_list:
-								ptm_list[ptm] += 1
+								line += '%s%s+%s;' % (aa,c+diff,modifications[k[c]])
 							else:
-								ptm_list[ptm] = 1
-							if ptm in ptm_aaa:
-								if aa in ptm_aaa[ptm]:
-									ptm_aaa[ptm][aa] += 1
+								ptm = '%.3f' % (float(k[c])/1000.0)
+								aa = lseq[int(c+diff)-int(kern['beg'])]
+								if ptm in ptm_list:
+									ptm_list[ptm] += 1
 								else:
-									ptm_aaa[ptm].update({aa:1})
-							else:
-								ptm_aaa[ptm] = {aa:1}
-							line += '%s%s#%.3f;' % (aa,c,float(k[c])/1000)
-				line = re.sub(';$','',line)
-				line += '\t%i\t%.0f\t%.0f\t%.3f\t%i' % (_scores[j],pscore,_intensities[j],delta/1000,round(ppm,0))
-				line += '\t%i' % (sum(kern['ns']))
-				if 'sav' in kern:
-					line += '\t%s%i%s\t%s\t%.2f' % (kern['res'],kern['pos'],kern['sav'],kern['rsn'],kern['maf'])
-					sav_mafs[kern['rsn']] = kern['maf']
-					SAVs += 1
-				else:
-					line += '\t\t\t'
-				mhash.update(sline+(json.dumps(kern)).encode())
-				if use_bcid:
-					line += '\t%s' % (mhash.hexdigest())
-				line += '\n'
-				ofile.write(line)
-				PSMs += 1
+									ptm_list[ptm] = 1
+								if ptm in ptm_aaa:
+									if aa in ptm_aaa[ptm]:
+										ptm_aaa[ptm][aa] += 1
+									else:
+										ptm_aaa[ptm].update({aa:1})
+								else:
+									ptm_aaa[ptm] = {aa:1}
+								line += '%s%s#%.3f;' % (aa,c+diff,float(k[c])/1000)
+					line = re.sub(';$','',line)
+					line += '\t%i\t%.0f\t%.0f\t%.3f\t%i' % (_scores[j],pscore,_intensities[j],delta/1000,round(ppm,0))
+					line += '\t%i' % (sum(kern['ns']))
+					if 'sav' in kern:
+						line += '\t%s%i%s\t%s\t%.2f' % (kern['res'],kern['pos'],kern['sav'],kern['rsn'],kern['maf'])
+						sav_mafs[kern['rsn']] = kern['maf']
+						SAVs += 1
+					else:
+						line += '\t\t\t'
+					mhash.update(sline+(json.dumps(kern)).encode())
+					if use_bcid:
+						line += '\t%s' % (mhash.hexdigest())
+					line += '\n'
+					ofile.write(line)
+					PSMs += 1
 				
 	ofile.close()
 	hist = [0]*101
