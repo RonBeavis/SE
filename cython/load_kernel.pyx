@@ -277,6 +277,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 				jv = None
 				jc = None
 				delta = 0
+				jstr = None
 				for s in pms:
 					delta = s_masses[s]-tmass
 					if(delta > 900):
@@ -293,34 +294,39 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 							js_master['ys'] = list(js_ys)
 							js_master['pm'] = js_pm
 							js_master['mods'] = []
+
+						if jstr is None:
+							jstr = ujson.dumps(jv['mods'])
+							if jstr in jvs:
+								break
 						sms = sms_list[s]
 						c = 0
 						for k in jm:
 							if k in sms:
 								c += 1
 						if c >= c_limit:
-							jstr = ujson.dumps(jv['mods'])
-							if jstr not in jvs:
-								if not appended:
-									qs.append(jv)
-									jvs.add(jstr)
-									if redundant and seq in redundancy:
-										redundancy[seq].append(len(qs)-1)
-									elif redundant:
-										redundancy[seq]= [len(qs)-1]
-									qm.append(jm)
-									appended = True
-									_labels[js_master['lb']] = 1
+							if not appended:
+								qs.append(jv)
+								if redundant and seq in redundancy:
+									redundancy[seq].append(len(qs)-1)
+								elif redundant:
+									redundancy[seq] = [len(qs)-1]
+								qm.append(jm)
+								appended = True
+								_labels[js_master['lb']] = 1
 							if s not in spectrum_list:
 								spectrum_list[s] = [qn]
 							elif qn not in spectrum_list[s]:
 								spectrum_list[s].append(qn)
+				if jstr is not None:
+					jvs.add(jstr)
 				if appended:
 					qn += 1
 				appended = False
 				if '[' in p_mods:
 					if p_mods['['][lp] != 0:
 						continue
+				jstr = None
 				if r_value_a == 2:
 					b_mods = []
 					y_mods = []
@@ -350,32 +356,38 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 								js_master['ys'] = list(js_ys)
 								js_master['pm'] = js_pm
 								js_master['mods'] = []
+
+							if jstr is None:
+								jstr = ujson.dumps(jv['mods'])
+								if jstr in jvs:
+									break
+
 							sms = sms_list[s]
 							c = 0
 							for k in jm:
 								if k in sms:
 									c += 1
 							if c >= c_limit:
-								jstr = ujson.dumps(jv['mods'])
-								if jstr not in jvs:
-									if not appended:
-										qs.append(jv)
-										jvs.add(jstr)
-										if redundant and seq+'+a' in redundancy:
-											redundancy[seq+'+a'].append(len(qs)-1)
-										elif redundant:
-											redundancy[seq+'+a']=[len(qs)-1]
-										qm.append(jm)
-										appended = True
-										_labels[js_master['lb']] = 1
+								if not appended:
+									qs.append(jv)
+									if redundant and seq+'+a' in redundancy:
+										redundancy[seq+'+a'].append(len(qs)-1)
+									elif redundant:
+										redundancy[seq+'+a'] = [len(qs)-1]
+									qm.append(jm)
+									appended = True
+									_labels[js_master['lb']] = 1
 								if s not in spectrum_list:
 									spectrum_list[s] = [qn]
 								elif qn not in spectrum_list[s]:
 									spectrum_list[s].append(qn)
 
+				if jstr is not None:
+					jvs.add(jstr)
 				if appended:
 					qn += 1
 				appended = False
+				jstr = None
 				if r_value_q == 2:
 					b_mods = []
 					y_mods = []
@@ -408,29 +420,34 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 								js_master['ys'] = list(js_ys)
 								js_master['pm'] = js_pm
 								js_master['mods'] = []
+
+							if jstr is None:
+								jstr = ujson.dumps(jv['mods'])
+								if jstr in jvs:
+									break
+
 							sms = sms_list[s]
 							c = 0
 							for k in jm:
 								if k in sms:
 									c += 1
 							if c >= c_limit:
-								jstr = ujson.dumps(jv['mods'])
-								if jstr not in jvs:
-									if not appended:
-										qs.append(jv)
-										jvs.add(jstr)
-										qm.append(jm)
-										if redundant and seq+'+q' in redundancy:
-											redundancy[seq+'+q'].append(len(qs)-1)
-										elif redundant:
-											redundancy[seq+'+q'] = [len(qs)-1]
-											_labels[js_master['lb']] = 1
-										appended = True
+								if not appended:
+									qs.append(jv)
+									qm.append(jm)
+									if redundant and seq+'+q' in redundancy:
+										redundancy[seq+'+q'].append(len(qs)-1)
+									elif redundant:
+										redundancy[seq+'+q']= [len(qs)-1]
+									_labels[js_master['lb']] = 1
+									appended = True
 								if s not in spectrum_list:
 									spectrum_list[s] = [qn]
 								elif qn not in spectrum_list[s]:
 									spectrum_list[s].append(qn)
 
+				if jstr is not None:
+					jvs.add(jstr)
 				if appended:
 					qn += 1
 
