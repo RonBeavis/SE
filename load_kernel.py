@@ -49,17 +49,26 @@ def load_isotopes():
 # this method is the only one called externally
 #
 
-def load_kernel(_f,_s,_param,_qi):
+def load_kernel(_fs,_s,_param):
 	freq = 1
 	if 'minimum peptide frequency' in _param:
 		freq = int(_param['minimum peptide frequency'])
 	labels = {}
 	r = 0
-	(qs,qm,spectrum_list,t,qn,rc) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
-	return (qs,qm,spectrum_list,t,qn,rc)
-
-def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
+	qs = []
+	qm = []
 	redundancy = {}
+	sl = {}
+	rcount = 0
+	kns = 0
+	for _f in _fs:
+		(t,rc) = load_kernel_main(_f,_s,_param,freq,labels,r,qs,qm,sl,redundancy)
+		kns += t
+		rcount += rc
+	return (qs,qm,sl,kns,rcount)
+
+def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
+	redundancy = _rd
 	motif_proteins = set([])
 	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
@@ -69,7 +78,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 #
 #	set kernel offset when loading multiple kernel files
 #
-	qn = _qi
+	qn = len(_qs)
 	sms_list = []
 	sp = {}
 	for sp in _s:
@@ -118,9 +127,9 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 #
 	t = 0
 	pms = []
-	qs = []
-	qm = []
-	spectrum_list = {}
+	qs = _qs
+	qm = _qm
+	spectrum_list = _sl
 	p_pos = {}
 	v_pos = {}
 	pre = ''
@@ -161,6 +170,8 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 	appended = False
 	r_count = 0
 	redundant = True
+	if _f.find('.sav.') != -1 or _f.find('.decoy.') != -1:
+		redundant = False
 	for l in f:
 #
 # 		show activity to the user
@@ -187,8 +198,6 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 		pre = js_master['pre']
 		n_term = seq[:1]
 		r_value = 2
-		if 'sav' in js_master:
-			redundant = False
 		r_value = check_redundancy(seq,redundancy,qs,js_master,redundant)
 		r_value_a = 0
 		if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
@@ -240,7 +249,6 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 		testAcetyl = False
 		testWater = False
 		jvs = set()
-
 		for lp in range(lp_len):
 			bIaa = False
 			if 'C' in p_mods:
@@ -294,14 +302,15 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 									qs.append(jv)
 									jvs.add(jstr)
 									if redundant and seq in redundancy:
-										redundancy[seq].append(len(qs) - 1)
+										redundancy[seq].append(len(qs)-1)
 									elif redundant:
-										redundancy[seq]= [len(qs) - 1]				
+										redundancy[seq] = [len(qs)-1]
 									qm.append(jm)
 									appended = True
 									_labels[js_master['lb']] = 1
-								if s not in spectrum_list:
-									spectrum_list[s] = []
+							if s not in spectrum_list:
+								spectrum_list[s] = [qn]
+							elif qn not in spectrum_list[s]:
 								spectrum_list[s].append(qn)
 				if appended:
 					qn += 1					
@@ -350,20 +359,21 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 										qs.append(jv)
 										jvs.add(jstr)
 										if redundant and seq+'+a' in redundancy:
-											redundancy[seq+'+a'].append(len(qs) - 1)
+											redundancy[seq+'+a'].append(len(qs)-1)
 										elif redundant:
-											redundancy[seq+'+a']= [len(qs) - 1]				
+											redundancy[seq+'+a'] = [len(qs)-1]
 										qm.append(jm)
-										_labels[js_master['lb']] = 1
 										appended = True
-									if s not in spectrum_list:
-										spectrum_list[s] = []
+										_labels[js_master['lb']] = 1
+								if s not in spectrum_list:
+									spectrum_list[s] = [qn]
+								elif qn not in spectrum_list[s]:
 									spectrum_list[s].append(qn)
 
 				if appended:
 					qn += 1
 				appended = False
-				if r_value_q:
+				if r_value_q == 2:
 					b_mods = []
 					y_mods = []
 					testWater = True
@@ -408,13 +418,14 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 										jvs.add(jstr)
 										qm.append(jm)
 										if redundant and seq+'+q' in redundancy:
-											redundancy[seq+'+q'].append(len(qs) - 1)
+											redundancy[seq+'+q'].append(len(qs)-1)
 										elif redundant:
-											redundancy[seq+'+q']= [len(qs) - 1]				
+											redundancy[seq+'+q']= [len(qs)-1]
 										_labels[js_master['lb']] = 1
 										appended = True
-									if s not in spectrum_list:
-										spectrum_list[s] = []
+								if s not in spectrum_list:
+									spectrum_list[s] = [qn]
+								elif qn not in spectrum_list[s]:
 									spectrum_list[s].append(qn)
 				if appended:
 					qn += 1
@@ -425,7 +436,7 @@ def load_kernel_main(_f,_s,_param,_qi, _freq,_labels,_r):
 		if redundant and testAcetyl and seq+'+a' not in redundancy:
 			redundancy[seq+'+a'] = None
 		t += 1
-	return (qs,qm,spectrum_list,t,qn,r_count)
+	return (t,r_count)
 
 def check_redundancy(_seq,_redundancy,_qs,_js,_re):
 	if not _re:

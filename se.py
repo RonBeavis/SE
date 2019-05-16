@@ -54,19 +54,9 @@ def main():
 	kmass = []
 	spectrum_list = {}
 	k = 0
-	qn = 0
 	rcounts = 0
-	for kf in kfs:
-		(kern,km,s_list,k1,qn,rc) = load_kernel(kf,spectra,params,qn)
-		rcounts += rc
-		kernel += kern
-		kmass += km
-		for s in s_list:
-			if s in spectrum_list:
-				spectrum_list[s] += s_list[s]
-			else:
-				spectrum_list[s] = s_list[s]
-		k += k1
+	(kernel,kmass,spectrum_list,k,rcounts) = load_kernel(kfs,spectra,params)
+
 	job_stats['Kernels'] = k
 	job_stats['KS-intersection'] = len(kernel)
 	delta = time.time()-start
