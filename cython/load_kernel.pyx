@@ -49,17 +49,28 @@ cdef dict load_isotopes():
 # this method is the only one called externally
 #
 
-def load_kernel(str _f,list _s,dict _param,long _qi):
+def load_kernel(list _fs,list _s,dict _param):
 	cdef long freq = 1
 	if 'minimum peptide frequency' in _param:
 		freq = int(_param['minimum peptide frequency'])
 	cdef dict labels = {}
 	cdef long r = 0
-	(qs,qm,spectrum_list,t,qn,rc) = load_kernel_main(_f,_s,_param,_qi,freq,labels,r)
-	return (qs,qm,spectrum_list,t,qn,rc)
-
-cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict _labels,long _r):
+	cdef list qs = []
+	cdef list qm = []
 	cdef dict redundancy = {}
+	cdef dict sl = {}
+	cdef long rcount = 0
+	cdef long kns = 0
+	cdef long t = 0
+	cdef long rc = 0
+	for _f in _fs:
+		(t,rc) = load_kernel_main(_f,_s,_param,freq,labels,r,qs,qm,sl,redundancy)
+		kns += t
+		rcount += rc
+	return (qs,qm,sl,kns,rcount)
+
+cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,long _r,list _qs,list _qm,dict _sl,dict _rd):
+	cdef dict redundancy = _rd
 	cdef set motif_proteins = set([])
 	cdef dict isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
@@ -69,7 +80,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 #
 #	set kernel offset when loading multiple kernel files
 #
-	cdef long qn = _qi
+	cdef long qn = len(_qs)
 	cdef list sms_list = []
 	cdef dict sp = {}
 	for sp in _s:
@@ -118,9 +129,9 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 #
 	cdef long t = 0
 	cdef list pms = []
-	cdef list qs = []
-	cdef list qm = []
-	cdef dict spectrum_list = {}
+	cdef list qs = _qs
+	cdef list qm = _qm
+	cdef dict spectrum_list = _sl
 	cdef dict p_pos = {}
 	cdef dict v_pos = {}
 	(s_index,s_masses) = create_index(_s,ires)
@@ -164,6 +175,8 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 	cdef int r_value_a = 0
 	cdef int r_value_q = 0
 	redundant = True
+	if _f.find('.sav.') != -1 or _f.find('.decoy.') != -1:
+		redundant = False
 	for l in f:
 #
 # 		show activity to the user
@@ -292,14 +305,15 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 									qs.append(jv)
 									jvs.add(jstr)
 									if redundant and seq in redundancy:
-										redundancy[seq].append(len(qs) - 1)
+										redundancy[seq].append(len(qs)-1)
 									elif redundant:
-										redundancy[seq]= [len(qs) - 1]				
+										redundancy[seq]= [len(qs)-1]
 									qm.append(jm)
 									appended = True
 									_labels[js_master['lb']] = 1
-								if s not in spectrum_list:
-									spectrum_list[s] = []
+							if s not in spectrum_list:
+								spectrum_list[s] = [qn]
+							elif qn not in spectrum_list[s]:
 								spectrum_list[s].append(qn)
 				if appended:
 					qn += 1
@@ -307,7 +321,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 				if '[' in p_mods:
 					if p_mods['['][lp] != 0:
 						continue
-				if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
+				if r_value_a == 2:
 					b_mods = []
 					y_mods = []
 					testAcetyl = True
@@ -346,21 +360,23 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 								if jstr not in jvs:
 									if not appended:
 										qs.append(jv)
+										jvs.add(jstr)
 										if redundant and seq+'+a' in redundancy:
-											redundancy[seq+'+a'].append(len(qs) - 1)
+											redundancy[seq+'+a'].append(len(qs)-1)
 										elif redundant:
-											redundancy[seq+'+a']= [len(qs) - 1]				
+											redundancy[seq+'+a']=[len(qs)-1]
 										qm.append(jm)
-										_labels[js_master['lb']] = 1
 										appended = True
-									if s not in spectrum_list:
-										spectrum_list[s] = []
+										_labels[js_master['lb']] = 1
+								if s not in spectrum_list:
+									spectrum_list[s] = [qn]
+								elif qn not in spectrum_list[s]:
 									spectrum_list[s].append(qn)
 
 				if appended:
 					qn += 1
 				appended = False
-				if q_ammonia_loss or c_ammonia_loss or water_loss:
+				if r_value_q == 2:
 					b_mods = []
 					y_mods = []
 					testWater = True
@@ -402,15 +418,17 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 								if jstr not in jvs:
 									if not appended:
 										qs.append(jv)
-										if redundant and seq+'+q' in redundancy:
-											redundancy[seq+'+q'].append(len(qs) - 1)
-										elif redundant:
-											redundancy[seq+'+q']= [len(qs) - 1]				
+										jvs.add(jstr)
 										qm.append(jm)
-										_labels[js_master['lb']] = 1
+										if redundant and seq+'+q' in redundancy:
+											redundancy[seq+'+q'].append(len(qs)-1)
+										elif redundant:
+											redundancy[seq+'+q'] = [len(qs)-1]
+											_labels[js_master['lb']] = 1
 										appended = True
-									if s not in spectrum_list:
-										spectrum_list[s] = []
+								if s not in spectrum_list:
+									spectrum_list[s] = [qn]
+								elif qn not in spectrum_list[s]:
 									spectrum_list[s].append(qn)
 
 				if appended:
@@ -423,7 +441,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _qi,long _freq,dict 
 		if redundant and testAcetyl and seq+'+a' not in redundancy:
 			redundancy[seq+'+a'] = None
 		t += 1
-	return (qs,qm,spectrum_list,t,qn,r_count)
+	return (t,r_count)
 
 cdef int check_redundancy(str _seq,dict _redundancy,list _qs,dict _js,_re):
 	if not _re:
