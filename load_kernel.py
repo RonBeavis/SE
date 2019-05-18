@@ -473,6 +473,12 @@ def check_redundancy(_seq,_redundancy,_qs,_js,_re):
 				_qs[v]['vpost'].append(_js['post'])
 				_qs[v]['vbeg'].append(_js['beg'])
 				_qs[v]['vend'].append(_js['end'])
+			if 'vlb' in _js:
+				_qs[v]['vlb'].extend(_js['vlb'])
+				_qs[v]['vpre'].extend(_js['vpre'])
+				_qs[v]['vpost'].extend(_js['vpost'])
+				_qs[v]['vbeg'].extend(_js['vbeg'])
+				_qs[v]['vend'].extend(_js['vend'])
 		return 1
 	return 2
 
