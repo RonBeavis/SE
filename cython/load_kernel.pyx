@@ -232,6 +232,18 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 #
 		(lp_pos,lp_total) = generate_lpstack(p_mods,seq,lp_len)
 #
+#		deal with the special case of protein N-terminal acetylation
+#
+		if r_value_a == 2 or r_value_q == 2:
+			if '[' in p_mods:
+				p_mods_a = copy.deepcopy(p_mods)
+				
+				p_mods_a['['] = [0]*len(p_mods_a['['])
+				(lp_pos_a,lp_total_a) = generate_lpstack(p_mods_a,seq,lp_len)
+			else:
+				lp_pos_a = lp_pos
+				lp_total_a = lp_total
+##
 # 		generate variable modification information
 #
 		
@@ -323,15 +335,13 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 				if appended:
 					qn += 1
 				appended = False
-				if '[' in p_mods:
-					if p_mods['['][lp] != 0:
-						continue
-				jstr = None
 				if r_value_a == 2:
 					b_mods = []
 					y_mods = []
 					testAcetyl = True
-					tmass = pm+p_total+acetyl
+					p_total_a = lp_total_a[lp]+vs_total
+					p_pos_a = lp_pos_a[lp]
+					tmass = pm+p_total_a+acetyl
 					if use_c13 and tmass > 1500000:
 						pms = get_spectra(s_index,tmass,ires,[c13])
 					else:
@@ -339,7 +349,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 					jv = None
 					jc = None
 					for s in pms:
-						delta = s_masses[s]-pm-p_total-acetyl
+						delta = s_masses[s]-pm-p_total_a-acetyl
 						if(delta > 900):
 							ppm = float(delta-c13)/tmass
 						else:
@@ -348,7 +358,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if jv is None:
-								(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+								(jv,jm) = load_json(js_master,p_pos_a,p_mods_a,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 #
 #								replace arrays in js_master
 #
@@ -395,7 +405,9 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 					dvalue = ammonia
 					if water_loss:
 						dvalue = water
-					tmass = pm+p_total-dvalue
+					p_total_a = lp_total_a[lp]+vs_total
+					p_pos_a = lp_pos_a[lp]
+					tmass = pm+p_total_a-dvalue
 					if use_c13 and tmass > 1500000:
 						pms = get_spectra(s_index,tmass,ires,[c13])
 					else:
@@ -403,7 +415,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 					jv = None
 					jc = None
 					for s in pms:
-						delta = s_masses[s]-pm-p_total+dvalue
+						delta = s_masses[s]-pm-p_total_a+dvalue
 						if(delta > 900):
 							ppm = float(delta-c13)/tmass
 						else:
@@ -412,7 +424,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if jv is None:
-								(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
+								(jv,jm) = load_json(js_master,p_pos_a,p_mods_a,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 #
 #								replace arrays in js_master
 #
