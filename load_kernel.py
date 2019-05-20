@@ -235,6 +235,7 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 				p_mods_a['['] = [0]*len(p_mods_a['['])
 				(lp_pos_a,lp_total_a) = generate_lpstack(p_mods_a,seq,lp_len)
 			else:
+				p_mods_a = p_mods
 				lp_pos_a = lp_pos
 				lp_total_a = lp_total
 #
