@@ -20,7 +20,7 @@ from display_ids import tsv_file,display_parameters
 def main():
 	print('started ...\n')
 	start = time.time()
-	job_stats = {'Software': 'SE','Software version': '2019.06.01.1'}
+	job_stats = {'Software': 'SE','Software version': '2019.06.01.2'}
 	job_stats['Start'] = str(datetime.datetime.now())
 #	
 #	load command line parameters and test for errors
@@ -72,8 +72,12 @@ def main():
 	delta = time.time()-start
 	job_stats['Search time'] = time.time()-start
 	print('   %.3f s' % (delta))
-	start = time.time() 
-	job_stats['Search time (/1000)'] = 1000*(time.time()-start)/len(spectra)
+	start = time.time()
+	if len(spectra) > 0:
+		job_stats['Search time (/1000)'] = 1000*(time.time()-start)/len(spectra)
+	else:
+		job_stats['Search time (/1000)'] = 0
+
 	job_stats['End'] = str(datetime.datetime.now())
 #
 #	output the results

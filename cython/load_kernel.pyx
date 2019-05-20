@@ -241,6 +241,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 				p_mods_a['['] = [0]*len(p_mods_a['['])
 				(lp_pos_a,lp_total_a) = generate_lpstack(p_mods_a,seq,lp_len)
 			else:
+				p_mods_a = p_mods
 				lp_pos_a = lp_pos
 				lp_total_a = lp_total
 ##
