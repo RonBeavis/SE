@@ -201,29 +201,26 @@ class mzMLHandler(xml.sax.ContentHandler):
 		return self.res
 	def cleanOne(self):
 		s = self.jsms
-		l = 50
 		ires = self.res
 		a = 0
-		i_max = 0
+		i_max = 0.0
+		_l = 50
 		pm = s['pm']
 		pz = s['pz']
-		for i in s['is']:
+		m = 0
+		for a,i in enumerate(s['is']):
 			m = s['ms'][a]
 			if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
-				a += 1
 				continue
 			if i > i_max:
-				i_max = i
-			a += 1
+				i_max = float(i)
 		sMs = []
 		sIs = []
-		a = 0
-		i_max /= 100
-		for m in s['ms']:
+		i_max =float(i_max)/100.0
+		for a,m in enumerate(s['ms']):
 			if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
-				a += 1
 				continue
-			if s['is'][a]/i_max > 1.0:
+			if float(s['is'][a])/i_max > 1.0:
 				i = s['is'][a]/i_max
 				if sMs:
 					if abs(sMs[-1] - m) < 500:
@@ -238,25 +235,32 @@ class mzMLHandler(xml.sax.ContentHandler):
 				else:
 					sMs.append(m)
 					sIs.append(i)
-			a += 1
 		sMs = [x for _,x in sorted(zip(sIs,sMs), key=lambda pair: pair[0],reverse = True)]
 		sIs.sort(reverse = True)
-		sMs = sMs[:l]
-		sIs = sIs[:l]
+		max_l = 2 * int(0.5 + float(pm)/100000.0)
+		if max_l > _l:
+			max_l = _l
+		sMs = sMs[:max_l]
+		sIs = sIs[:max_l]
 		sIs = [x for _,x in sorted(zip(sMs,sIs), key=lambda pair: pair[0])]
 		sMs.sort()
 		s.pop('ms')
 		s.pop('is')
 		tps = []
-#
-#		generate a normalized set of spectrum masses
-#
-		for m in sMs:
-			val = int(0.5+m/ires)
+		ips = []
+		val = 0
+	#
+	#		generate a normalized set of spectrum masses
+	#
+		for a,m in enumerate(sMs):
+			val = int(0.5+float(m)/ires)
 			tps.append(val)
 			tps.append(val-1)
 			tps.append(val+1)
+			ips.extend([sIs[a],sIs[a],sIs[a]])
 		s['sms'] = tps
+		s['ims'] = ips
+		s['isum'] = sum(sIs)
 		return s
 
 	def startElement(self, tag, attrs):
