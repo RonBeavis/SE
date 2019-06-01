@@ -207,7 +207,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 			redundant = False
 		r_value = check_redundancy(seq,redundancy,qs,js_master,redundant)
 		r_value_a = 0
-		if beg < 4 and 'LIFWQYHKR'.find(n_term) == -1:
+		if beg < 4 and 'LIFWQYKR'.find(n_term) == -1:
 			r_value_a = check_redundancy(seq+'+a',redundancy,qs,js_master,redundant)
 
 		q_ammonia_loss = False

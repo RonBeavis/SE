@@ -18,17 +18,16 @@ from perform_ids import perform_ids
 from display_ids import tsv_file,display_parameters
 
 def main():
-	print('started ...\n')
 	start = time.time()
-	job_stats = {'Software': 'SE','Software version': '2019.06.01.2'}
+	job_stats = {'Software': 'SE','Software version': '2019.06.01.3'}
 	job_stats['Start'] = str(datetime.datetime.now())
 #	
 #	load command line parameters and test for errors
 #
-	print('Loading parameters')
-	(params,ret) = load_params(sys.argv)
+	(params,ret,version) = load_params(sys.argv)
 	if not ret:
-		print('\n... exited')
+		if version:
+			print('%s: %s' % (job_stats['Software'],job_stats['Software version']))
 		exit()
 	display_parameters(params)
 #
@@ -54,9 +53,9 @@ def main():
 	kmass = []
 	spectrum_list = {}
 	k = 0
-	qn = 0
 	rcounts = 0
 	(kernel,kmass,spectrum_list,k,rcounts) = load_kernel(kfs,spectra,params)
+
 	job_stats['Kernels'] = k
 	job_stats['KS-intersection'] = len(kernel)
 	delta = time.time()-start
@@ -72,12 +71,11 @@ def main():
 	delta = time.time()-start
 	job_stats['Search time'] = time.time()-start
 	print('   %.3f s' % (delta))
-	start = time.time()
+	start = time.time() 
 	if len(spectra) > 0:
 		job_stats['Search time (/1000)'] = 1000*(time.time()-start)/len(spectra)
 	else:
 		job_stats['Search time (/1000)'] = 0
-
 	job_stats['End'] = str(datetime.datetime.now())
 #
 #	output the results
