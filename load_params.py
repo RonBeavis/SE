@@ -73,6 +73,7 @@ def load_params(_argv):
 	params = {}
 	ret = True
 	help = False
+	version = False
 	additional_spectra = ''
 	additional_kernels = ''
 	for i,v in enumerate(_argv):
@@ -80,6 +81,10 @@ def load_params(_argv):
 			if i + 1 < len(_argv):
 				u = _argv[i+1]
 			elif v.find('-h') == 0:
+				pass
+			elif v.find('--help') == 0:
+				pass
+			elif v.find('--version') == 0:
 				pass
 			else:
 				continue
@@ -170,9 +175,12 @@ def load_params(_argv):
 				else:
 					pd[tp[1]] = [mass]
 			params['mods v'] = pd
-		if v.find('-h') != -1:
+		if v.find('-h') != -1 or v.find('--help') != -1:
 			ret = False
 			help = True
+		if v.find('--version') != -1:
+			ret = False
+			version = True
 		if v.find('-l') != -1:
 			ret = False
 			if u == 'isos':
@@ -214,9 +222,14 @@ def load_params(_argv):
 		   -l: list names and associated masses in mDa (isos|aas|mods)
 		         types: isos = isotopes, 
 		                aas = aa residues,
-		                mods = PTMs and chemical modifications 
+		                mods = PTMs and chemical modifications
+		   --help: the same as -h
+		   --version: print software version number only
 ''')
-		return (params,False)
+		return (params,False,version)
+	if version:
+		return (params,False,version)
+
 #
 #	load parameters file, if -d specified
 #
@@ -283,5 +296,5 @@ def load_params(_argv):
 			if not os.path.isfile(s):
 				print('''Error: %s (-s/S) "%s" does not exist''' % (pval,s))
 				ret = False
-	return (params,ret)
+	return (params,ret,version)
 

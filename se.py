@@ -18,17 +18,16 @@ from perform_ids import perform_ids
 from display_ids import tsv_file,display_parameters
 
 def main():
-	print('started ...\n')
 	start = time.time()
-	job_stats = {'Software': 'SE','Software version': '2019.06.01.2'}
+	job_stats = {'Software': 'SE','Software version': '2019.06.01.3'}
 	job_stats['Start'] = str(datetime.datetime.now())
 #	
 #	load command line parameters and test for errors
 #
-	print('Loading parameters')
-	(params,ret) = load_params(sys.argv)
+	(params,ret,version) = load_params(sys.argv)
 	if not ret:
-		print('\n... exited')
+		if version:
+			print('%s: %s' % (job_stats['Software'],job_stats['Software version']))
 		exit()
 	display_parameters(params)
 #
