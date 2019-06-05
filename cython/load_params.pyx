@@ -202,7 +202,7 @@ def load_params(_argv):
 		ret = False
 	if help:
 		print('''
-	>python3 se.py -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR) (-l TYPE)
+	>python3 σε.π -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR) (-l TYPE)
 	   where:
 		   -c: use C13 isotope-error testing (yes/no)
 		   -d: default parameter file (JSON)
