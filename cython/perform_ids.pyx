@@ -35,7 +35,7 @@ def perform_ids(_s,_k,_list,_param):
 	if ires > 100:
 		b_score = 8
 	best_score = 0
-	best_intensity = 0
+	best_intensity = 0.0
 	ident = []
 #
 #	indicate progress to user
@@ -58,11 +58,10 @@ def perform_ids(_s,_k,_list,_param):
 #
 		ks = _list[a]
 		best_score = b_score
-		best_intensity = 0
+		best_intensity = 0.0
 		ident = []
 #		s_set = set(s['sms'])
 		s_set = dict(zip(s['sms'],s['ims']))
-
 #
 #		iterate through kernels on the list
 #		and track scoring
@@ -101,7 +100,7 @@ def perform_ids(_s,_k,_list,_param):
 #	count the number of matches between a normalized kernel and spectrum pair
 #
 
-cdef tuple score_id(dict _s,list _k):
+def score_id(_s,_k):
 	c = 0
 	i = 0
 	for k in _k:

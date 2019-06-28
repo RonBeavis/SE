@@ -19,6 +19,7 @@ import hashlib
 from scipy.stats import hypergeom,tmean,tstd
 import math
 import copy
+import matplotlib.pyplot as plt
 
 #
 # retrieves a list of modification masses and names for use in displays
@@ -155,6 +156,27 @@ def generate_scores(_ids,_scores,_spectra,_kernel,_params):
 def create_header():
 	return 	'PSM\tspectrum\tscan\trt\tm/z\tz\tprotein\tstart\tend\tpre\tsequence\tpost\tmodifications\tions\tscore\tsignal\tdM\tppm\tn\tsav\trs\tmaf'
 
+def dump_wide(_params,error_histogram):
+	f = open(_params['output file'].replace('.tsv','.wide.tsv'),'a')
+	a = min(error_histogram)
+	(m,ma) = max(zip(error_histogram.values(), error_histogram.keys()))
+	x = []
+	y = []
+	for b in range(a,max(error_histogram)+1):
+		c = 0
+		if b in error_histogram:
+			c = error_histogram[b]
+		f.write('%i\t%i\t%.2f\n' % (b,c,100*c/m))
+		x.append(b)
+		y.append(100*c/m)
+	f.close()
+	plt.bar(x,y)
+	plt.title('σε.π: ' + _params['spectra file'])
+	plt.xlabel('Δm (daltons)')
+	plt.ylabel('relative intensity')
+	plt.show()
+	
+
 def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 	if len(_ids) == 0:
 		ofile = open(_params['output file'],'w')
@@ -176,7 +198,16 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 	pscore_min = 200.0
 	print('     applying statistics')
 	score_tuples = generate_scores(_ids,_scores,_spectra,_kernel,_params)
-	(low,high,bins) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,score_tuples,pscore_min)
+	wide_search = 0
+	if 'wide search' in _params:
+		wide_search = _params['wide search']
+	if wide_search == 0:
+		(low,high,bins) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,score_tuples,pscore_min)
+	else:	
+		low = -1 * int(_params['parent mass tolerance'])
+		high = int(_params['parent mass tolerance'])
+		bins = int(_params['parent mass tolerance']) * 2
+		print(low,high,bins)
 	_params['output low ppm'] = low
 	_params['output high ppm'] = high
 	_params['output histogram ppm'] = bins
@@ -224,6 +255,7 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 	SAVs = 0
 	DECOYs = 0
 	sav_mafs = {}
+	error_histogram = {}
 	if res > 100:
 		sfactor = 40
 		sadjust = 0.5
@@ -269,19 +301,25 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 						break
 					delta = _spectra[j]['pm']-kern['pm']
 					ppm = 1e6*delta/kern['pm']
-					if delta/1000.0 > 0.9:
-						ppm = 1.0e6*(delta-1003.0)/kern['pm']
-					if ppm < low or ppm > high:
-						continue
-					if _intensities[j] < minimum_intensity:
-						continue
-					if x == 0 and delta/1000.0 > 0.9:
+					if wide_search == 0:
+						if delta/1000.0 > 0.9:
+							ppm = 1.0e6*(delta-1003.0)/kern['pm']
+						if ppm < low or ppm > high:
+							continue
+						if _intensities[j] < minimum_intensity:
+							continue
+					if x == 0 and 0.9 < delta/1000.0 < 1.1:
 						parent_a[1] += 1
 						parent_delta_ppm.append(ppm)
-					elif x == 0:
+					elif x == 0 and -0.1 < delta/1000.0 < 0.1 :
 						parent_a[0] += 1
 						parent_delta.append(delta/1000.0)
 						parent_delta_ppm.append(ppm)
+					er = int(0.5 + delta/1000)
+					if er in error_histogram:
+						error_histogram[er] += 1
+					else:
+						error_histogram[er] = 1
 					x += 1
 					valid_ids += 1
 					z = _spectra[j]['pz']
@@ -367,7 +405,7 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 		summary += '    output file: %s\n' % (_params['output file'])
 		summary += '    PSMs: %i\n' % (PSMs)
 		print(summary)
-		f = open(_params['output file'] + '.summary','a')
+		f = open(_params['output file'].replace('.tsv','.summary.tsv'),'a')
 		ss = [l.lstrip() for l in summary.split('\n')]
 		f.write('\n'.join(ss))
 		f.close()
@@ -417,9 +455,11 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 		summary += '    signal mean (%%): %.1f\n' % (tmean(arr))
 		summary += '    signal sd (%%): %.1f\n' % (tstd(arr))
 	print(summary)
-	f = open(_params['output file'] + '.summary','a')
+	f = open(_params['output file'].replace('.tsv','.summary.tsv'),'a')
 	ss = [re.sub('^(.+?)\: +',r'\1	',l.lstrip()) for l in summary.split('\n')]
 	f.write('\n'.join(ss))
 	f.close()
+	if wide_search > 0:
+		dump_wide(_params,error_histogram)
 	return
 

@@ -26,14 +26,14 @@ import copy
 # method to import a list of isotopic masses necessary to do some of the calculations.
 # if 'isotopes.txt' is not available, a warning is thrown and a default list is used.
 #
-cdef dict load_isotopes():
+def load_isotopes():
 	try:
 		f = open('isotopes.txt','r')
 	except:
 		print('Warning: isotopes.txt is not available so default values used')
 		return { 'p':1.007276,'1H':1.007825,'2H':2.014102,'12C':12.0,'13C':13.003355,'14N':14.003074,
 		 	'16O':15.994915,'32S':31.972072 }
-	cdef dict iso = {}
+	iso = {}
 	for l in f:
 		l = l.strip()
 		vs = l.split('\t')
@@ -49,30 +49,28 @@ cdef dict load_isotopes():
 # this method is the only one called externally
 #
 
-def load_kernel(list _fs,list _s,dict _param):
-	cdef long freq = 1
+def load_kernel(_fs,_s,_param):
+	freq = 1
 	if 'minimum peptide frequency' in _param:
 		freq = int(_param['minimum peptide frequency'])
-	cdef dict labels = {}
-	cdef long r = 0
-	cdef list qs = []
-	cdef list qm = []
-	cdef dict redundancy = {}
-	cdef dict sl = {}
-	cdef long rcount = 0
-	cdef long kns = 0
-	cdef long t = 0
-	cdef long rc = 0
+	labels = {}
+	r = 0
+	qs = []
+	qm = []
+	redundancy = {}
+	sl = {}
+	rcount = 0
+	kns = 0
 	for _f in _fs:
 		(t,rc) = load_kernel_main(_f,_s,_param,freq,labels,r,qs,qm,sl,redundancy)
 		kns += t
 		rcount += rc
 	return (qs,qm,sl,kns,rcount)
 
-cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,long _r,list _qs,list _qm,dict _sl,dict _rd):
-	cdef dict redundancy = _rd
-	cdef set motif_proteins = set([])
-	cdef dict isotopes = load_isotopes()
+def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
+	redundancy = _rd
+	motif_proteins = set([])
+	isotopes = load_isotopes()
 	if _f.find('.gz') == len(_f) - 3:
 		f = gzip.open(_f,'rt', encoding='utf-8')
 	else:
@@ -80,9 +78,9 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 #
 #	set kernel offset when loading multiple kernel files
 #
-	cdef long qn = len(_qs)
-	cdef list sms_list = []
-	cdef dict sp = {}
+	qn = len(_qs)
+	sms_list = []
+	sp = {}
 	for sp in _s:
 		sms_list.append(set(sp['sms']))
 
@@ -90,18 +88,18 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 # 	retrieve information from the _param dictionary and
 #	create faster local variables
 #
-	cdef long default_depth = 3
-	cdef long len_labels = len(_labels)
+	default_depth = 3
+	len_labels = len(_labels)
 	if 'ptm depth' in _param:
 		default_depth = _param.get('ptm depth')
 	if default_depth > 10:
 		default_depth = 10
-	cdef long res = 50
-	cdef double max_ppm = float(_param.get('parent mass tolerance'))*1.0e-6
-	cdef double min_ppm = -1.0*max_ppm
-	cdef double ppm = 0.0
-	cdef double ires = float(res)
-	cdef double fres = float(_param.get('fragment mass tolerance'))
+	res = 50
+	max_ppm = float(_param.get('parent mass tolerance'))*1.0e-6
+	min_ppm = -1.0*max_ppm
+	ppm = 0.0
+	ires = float(res)
+	fres = float(_param.get('fragment mass tolerance'))
 	nt_ammonia = True
 	if 'nt-ammonia' in _param['mods o']:
 		nt_ammonia = _param['mods o']['nt-ammonia']
@@ -111,9 +109,12 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 	use_c13 = True
 	if 'c13' in _param:
 		use_c13 = _param.get('c13')
-	cdef long acetyl = 42011
-	cdef dict p_mods = {}
-	cdef dict v_mods = {}
+	acetyl = 42011
+	wide_search = 0
+	if 'wide search' in _param:
+		wide_search = _param['wide search']
+	p_mods = {}
+	v_mods = {}
 	if 'mods p' in _param:
 		p_mods = _param.get('mods p')
 	if 'mods v' in _param:
@@ -121,19 +122,20 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 #
 # 	create local variables for specific masses
 #
-	cdef long ammonia = normalize(isotopes.get('14N') + 3*isotopes.get('1H'))
-	cdef long water = normalize(isotopes.get('16O') + 2*isotopes.get('1H'))
-	cdef long c13 = normalize(isotopes.get('13C') - isotopes.get('12C'))
+	ammonia = normalize(isotopes.get('14N') + 3*isotopes.get('1H'))
+	water = normalize(isotopes.get('16O') + 2*isotopes.get('1H'))
+	c13 = normalize(isotopes.get('13C') - isotopes.get('12C'))
 #
 # 	initialize some variable outside of the main iteration
 #
-	cdef long t = 0
-	cdef list pms = []
-	cdef list qs = _qs
-	cdef list qm = _qm
-	cdef dict spectrum_list = _sl
-	cdef dict p_pos = {}
-	cdef dict v_pos = {}
+	t = 0
+	pms = []
+	qs = _qs
+	qm = _qm
+	spectrum_list = _sl
+	p_pos = {}
+	v_pos = {}
+	pre = ''
 	(s_index,s_masses) = create_index(_s,ires)
 #
 # 	show activity to the user
@@ -141,39 +143,35 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 	print('.',end='')
 	sys.stdout.flush()
 
-	cdef long lp_len = 0
+	lp_len = 0
 	if p_mods:
 		for v in p_mods:
 			lp_len = len(p_mods[v])
 			break
-	cdef list isIaa = [0]*lp_len
+	isIaa = [0]*lp_len
 	if 'C' in p_mods:
 		for i in range(len(p_mods['C'])):
 			if p_mods['C'][i] == 57021:
 				isIaa[i] = True
 			else:
 				isIaa[i] = False
-	cdef long p_total = 0
-	cdef long d_value = 0
-	cdef long tmass = 0
-	cdef long delta = 0
-	cdef long c = 0
-	cdef long c_limit = 5
-	cdef long pm = 0
-	cdef long beg = 0
-	cdef str seq = ''
-	cdef str pre = ''
-	cdef long s = 0
+	p_total = 0
+	d_value = 0
+	tmass = 0
+	delta = 0
+	c = 0
+	c_limit = 5
+	pm = 0
+	beg = 0
+	seq = ''
+	s = 0
 	q_ammonia_loss = False
 	c_ammonia_loss = False
 	water_loss = False
 	ok = False
 	bIaa = False
 	appended = False
-	cdef long r_count = 0
-	cdef int r_value = 0
-	cdef int r_value_a = 0
-	cdef int r_value_q = 0
+	r_count = 0
 	redundant = True
 	if _f.find('.sav.') != -1 or _f.find('.decoy.') != -1:
 		redundant = False
@@ -194,17 +192,15 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 			continue
 		if _r == 0:
 			if sum(js_master['ns']) < _freq:
+				t += 1
 				continue
+
 		pm = js_master['pm']
 		beg = js_master['beg']
 		seq = js_master['seq']
 		pre = js_master['pre']
-
 		n_term = seq[:1]
 		r_value = 2
-		redundant = True
-		if 'sav' in js_master:
-			redundant = False
 		r_value = check_redundancy(seq,redundancy,qs,js_master,redundant)
 		r_value_a = 0
 		if beg < 4 and 'LIFWQYKR'.find(n_term) == -1:
@@ -227,6 +223,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 			r_count += 1
 			t += 1
 			continue
+
 #
 # 		generate fixed modification information
 #
@@ -244,7 +241,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 				p_mods_a = p_mods
 				lp_pos_a = lp_pos
 				lp_total_a = lp_total
-##
+#
 # 		generate variable modification information
 #
 		
@@ -257,6 +254,9 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 		b_mods = []
 		y_mods = []
 #
+# 		check for special case peptide N-terminal cyclization at Q, C or E
+#
+#
 #		Make copies of the arrays in js_master
 #
 		js_bs = list(js_master['bs'])
@@ -265,6 +265,8 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 		testAcetyl = False
 		testWater = False
 		jvs = set()
+		search_array = [-1000*i for i in range(1,wide_search)]
+		search_array += [1000*i for i in range(1,wide_search)]
 		for lp in range(lp_len):
 			bIaa = False
 			if 'C' in p_mods:
@@ -279,11 +281,13 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 				p_pos = lp_pos[lp]
 				p_total = lp_total[lp]+vs_total
 				tmass = pm+p_total
-				if r_value == 2:
+				if r_value == 2 and wide_search == 0:
 					if use_c13 and tmass > 1500000:
 						pms = get_spectra(s_index,tmass,ires,[c13])
 					else:
 						pms = get_spectra(s_index,tmass,ires,[])
+				elif r_value == 2 and wide_search > 0:
+					pms = get_spectra(s_index,tmass,ires,search_array)
 				else:
 					pms = []
 				appended = False
@@ -297,7 +301,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 						ppm = float(delta-c13)/tmass
 					else:
 						ppm = float(delta)/tmass
-					if min_ppm < ppm < max_ppm:
+					if wide_search > 0 or min_ppm < ppm < max_ppm:
 						if jv is None:
 							(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 #
@@ -334,8 +338,9 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 				if jstr is not None:
 					jvs.add(jstr)
 				if appended:
-					qn += 1
+					qn += 1					
 				appended = False
+				jstr = None
 				if r_value_a == 2:
 					b_mods = []
 					y_mods = []
@@ -343,10 +348,13 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 					p_total_a = lp_total_a[lp]+vs_total
 					p_pos_a = lp_pos_a[lp]
 					tmass = pm+p_total_a+acetyl
-					if use_c13 and tmass > 1500000:
-						pms = get_spectra(s_index,tmass,ires,[c13])
+					if wide_search == 0:
+						if use_c13 and tmass > 1500000:
+							pms = get_spectra(s_index,tmass,ires,[c13])
+						else:
+							pms = get_spectra(s_index,tmass,ires,[])
 					else:
-						pms = get_spectra(s_index,tmass,ires,[])
+						pms = get_spectra(s_index,tmass,ires,search_array)
 					jv = None
 					jc = None
 					for s in pms:
@@ -355,7 +363,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 							ppm = float(delta-c13)/tmass
 						else:
 							ppm = float(delta)/tmass
-						if min_ppm < ppm < max_ppm:
+						if wide_search > 0 or min_ppm < ppm < max_ppm:
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if jv is None:
@@ -409,10 +417,13 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 					p_total_a = lp_total_a[lp]+vs_total
 					p_pos_a = lp_pos_a[lp]
 					tmass = pm+p_total_a-dvalue
-					if use_c13 and tmass > 1500000:
-						pms = get_spectra(s_index,tmass,ires,[c13])
+					if wide_search == 0:
+						if use_c13 and tmass > 1500000:
+							pms = get_spectra(s_index,tmass,ires,[c13])
+						else:
+							pms = get_spectra(s_index,tmass,ires,[])
 					else:
-						pms = get_spectra(s_index,tmass,ires,[])
+						pms = get_spectra(s_index,tmass,ires,search_array)
 					jv = None
 					jc = None
 					for s in pms:
@@ -421,7 +432,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 							ppm = float(delta-c13)/tmass
 						else:
 							ppm = float(delta)/tmass
-						if min_ppm < ppm < max_ppm:
+						if wide_search > 0 or min_ppm < ppm < max_ppm:
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if jv is None:
@@ -433,12 +444,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 								js_master['ys'] = list(js_ys)
 								js_master['pm'] = js_pm
 								js_master['mods'] = []
-
 							if jstr is None:
 								jstr = ujson.dumps(jv['mods'])
 								if jstr in jvs:
 									break
-
 							sms = sms_list[s]
 							c = 0
 							for k in jm:
@@ -458,12 +467,10 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 									spectrum_list[s] = [qn]
 								elif qn not in spectrum_list[s]:
 									spectrum_list[s].append(qn)
-
 				if jstr is not None:
 					jvs.add(jstr)
 				if appended:
 					qn += 1
-
 		if redundant and seq not in redundancy:
 			redundancy[seq] = None
 		if redundant and testWater and seq+'+q' not in redundancy:
@@ -473,7 +480,7 @@ cdef tuple load_kernel_main(str _f,list _s,dict _param,long _freq,dict _labels,l
 		t += 1
 	return (t,r_count)
 
-cdef int check_redundancy(str _seq,dict _redundancy,list _qs,dict _js,_re):
+def check_redundancy(_seq,_redundancy,_qs,_js,_re):
 	if not _re:
 		return 2
 	if _seq in _redundancy:
@@ -502,11 +509,11 @@ cdef int check_redundancy(str _seq,dict _redundancy,list _qs,dict _js,_re):
 		return 1
 	return 2
 
-cdef tuple check_motifs(str _seq,dict _d_mods,long _depth):
-	cdef long dcoll = len(re.findall('(?=(G.PG))', _seq))
-	cdef long dng = _seq.find('NG')
-	cdef dict v_mods = _d_mods
-	cdef long depth = _depth
+def check_motifs(_seq,_d_mods,_depth):
+	dcoll = len(re.findall('(?=(G.PG))', _seq))
+	dng = _seq.find('NG')
+	v_mods = _d_mods
+	depth = _depth
 	if dcoll > 1 or dng != -1:
 		v_mods = copy.deepcopy(_d_mods)
 		if dcoll > 1 and 'P' not in v_mods:
@@ -522,7 +529,7 @@ cdef tuple check_motifs(str _seq,dict _d_mods,long _depth):
 # method to convert floating point masses in Daltons to integer masses in milliDaltons
 #
 
-cdef long normalize(_v):
+def normalize(_v):
 	return int(round(1000*_v,0))
 
 #
@@ -530,16 +537,16 @@ cdef long normalize(_v):
 # in a single element
 #
 
-cdef list generate_vstack(dict _mods,dict _pos,long _depth = 3):
-	cdef list v_stack = []
-	cdef dict vs_pos = {}
-	cdef list master_list = []
+def generate_vstack(_mods,_pos,_depth = 3):
+	v_stack = []
+	vs_pos = {}
+	master_list = []
 #
 #	create an empty vs_pos dict (unmodified)
 #	and generate a list of the possible modifications
 #	where each element is a tuple of (residue,position)
 #
-	cdef str v = ''
+	v = ''
 	for v in _mods:
 		vs_pos[v] = []
 		if v not in _pos:
@@ -547,18 +554,18 @@ cdef list generate_vstack(dict _mods,dict _pos,long _depth = 3):
 		else:
 			for p in _pos[v]:
 				master_list.append((v,p))
-	cdef list vs_item = [vs_pos,0]
+	vs_item = [vs_pos,0]
 	v_stack.append(vs_item)
-	cdef long d = 1
+	d = 1
 #
 #	iterate to the specified depth of modification
 #
-	cdef long deamidated = 0
-	cdef long dm = 0
-	cdef list m_list = []
-	cdef tuple ml = ()
-	cdef long mod_mass = 0
-	cdef long mod_len = 0
+	deamidated = 0
+	dm = 0
+	m_list = []
+	ml = ()
+	mod_mass = 0
+	mod_len = 0
 	while d <= _depth:
 #
 #		generate a list of all possible combinations of "d" modifications
@@ -592,11 +599,11 @@ cdef list generate_vstack(dict _mods,dict _pos,long _depth = 3):
 # method to locate possible variable modification sites in a sequence
 #
 
-cdef dict generate_vd(dict _mods,str _seq,str _pre):
+def generate_vd(_mods,_seq,_pre):
 	keep = False
-	cdef dict v_pos = {}
-	cdef long ls = len(_seq)
-	cdef str v = ''
+	v_pos = {}
+	ls = len(_seq)
+	v = ''
 	bNt = True
 	if _pre == 'G' and '[' in _mods:
 		if _mods['['][0] == 57021:
@@ -623,14 +630,14 @@ cdef dict generate_vd(dict _mods,str _seq,str _pre):
 # with this information for each set of modification states to be tested
 #
 
-cdef tuple generate_lpstack(dict _mods,str _seq,long _lp_len):
-	cdef long lp_len = _lp_len
-	cdef list lp_pos = []
-	cdef list lp_total = []
-	cdef long ls = len(_seq)
-	cdef long lp = 0
+def generate_lpstack(_mods,_seq,_lp_len):
+	lp_len = _lp_len
+	lp_pos = []
+	lp_total = []
+	ls = len(_seq)
+	lp = 0
 	keep = False
-	cdef long p_total = 0
+	p_total = 0
 	for lp in range(lp_len):
 		p_pos = {}
 		p_total = 0
@@ -663,8 +670,8 @@ cdef tuple generate_lpstack(dict _mods,str _seq,long _lp_len):
 # using the information generated from the allowed modification lists
 #
 
-cdef tuple load_json(dict _l,dict _p_pos,dict _p_mods,list _b_mods,list _y_mods,long _lp,dict _vs_pos,dict _v_mods,double _fres):
-	cdef dict jin = _l
+def load_json(_l,_p_pos,_p_mods,_b_mods,_y_mods,_lp,_vs_pos,_v_mods,_fres):
+	jin = _l
 	jin['mods'] = []
 	if _p_pos:
 		jin = update_ions(jin,_p_mods,_p_pos,_lp)
@@ -674,12 +681,12 @@ cdef tuple load_json(dict _l,dict _p_pos,dict _p_mods,list _b_mods,list _y_mods,
 		jin = update_bions(jin,_b_mods)
 	if _y_mods:
 		jin = update_yions(jin,_y_mods)
-	cdef list ms = jin['bs']+jin['ys']
+	ms = jin['bs']+jin['ys']
 	if jin['pm'] > 1200:
 		ms.extend([jin['bs'][-1]/2,jin['bs'][-2]/2,jin['bs'][-3]/2])
-	cdef dict v = {}
+	v = {}
 	ms = [int(0.5+float(i)/_fres) for i in ms]
-	cdef str j = ''
+	j = ''
 	for j in jin:
 		if j == 'bs' or j == 'ys':
 			continue
@@ -693,15 +700,15 @@ cdef tuple load_json(dict _l,dict _p_pos,dict _p_mods,list _b_mods,list _y_mods,
 # _lp - the position in _pos
 #
 
-cdef dict update_ions(dict _js,dict _mods,dict _pos,long _lp):
-	cdef dict jin = _js
-	cdef long t = len(jin['bs'])
-	cdef list mod_tuples = []
-	cdef long tmod = 0
-	cdef long beg = jin['beg']
-	cdef long a = 0
-	cdef long delta = 0
-	cdef str m = ''
+def update_ions(_js,_mods,_pos,_lp):
+	jin = _js
+	t = len(jin['bs'])
+	mod_tuples = []
+	tmod = 0
+	beg = jin['beg']
+	a = 0
+	delta = 0
+	m = ''
 	for m in _mods:
 		if not _pos[m]:
 			continue
@@ -741,14 +748,14 @@ cdef dict update_ions(dict _js,dict _mods,dict _pos,long _lp):
 #       broken out as separate methods for clarity and easier
 #       debugging
 #
-cdef dict update_bions(_js,_bmods):
-	cdef dict js = _js
-	cdef long t = len(js['bs'])
-	cdef dict mods = {}
-	cdef long beg = js['beg']
-	cdef list mod_tuples = []
-	cdef long b = 0
-	cdef long a = 0
+def update_bions(_js,_bmods):
+	js = _js
+	t = len(js['bs'])
+	mods = {}
+	beg = js['beg']
+	mod_tuples = []
+	b = 0
+	a = 0
 	for b in _bmods:
 		js['pm'] += b
 		mod_tuples.append((beg,b))
@@ -758,14 +765,14 @@ cdef dict update_bions(_js,_bmods):
 		js['mods'].append({tup[0]:tup[1]})
 	return js
 
-cdef dict update_yions(dict _js,list _ymods):
-	cdef dict js = _js
-	cdef long t = len(js['ys'])
-	cdef dict mods = {}
-	cdef long end = js['end']
-	cdef list mod_tuples = []
-	cdef long b = 0
-	cdef long a = 0
+def update_yions(_js,_ymods):
+	js = _js
+	t = len(js['ys'])
+	mods = {}
+	end = js['end']
+	mod_tuples = []
+	b = 0
+	a = 0
 	for b in _ymods:
 		js['pm'] += b
 		mod_tuples.append((end,b))
@@ -780,13 +787,13 @@ cdef dict update_yions(dict _js,list _ymods):
 # that uses a dictionary and binning to perform the matches
 #
 
-cdef tuple create_index(list _sp,double _r):
-	cdef dict index = {}
-	cdef list masses = []
-	cdef long a = 0
-	cdef long pm = 0
-	cdef long m = 0
-	cdef dict s = {}
+def create_index(_sp,_r):
+	index = {}
+	masses = []
+	a = 0
+	pm = 0
+	m = 0
+	s = {}
 	for s in _sp:
 		m = s['pm']
 		masses.append(m)
@@ -807,11 +814,11 @@ cdef tuple create_index(list _sp,double _r):
 	return (index,masses)
 
 
-cdef list get_spectra(_index,double _mass,double _r,list _slots = []):
-	cdef long iv = int(0.5+_mass/_r)
-	cdef list pms = []
+def get_spectra(_index,_mass,_r,_slots = []):
+	iv = int(0.5+_mass/_r)
+	pms = []
 	pms += _index.get(iv,[])
-	cdef long s = 0
+	s = 0
 	for s in _slots:
 		iv = int(0.5+(_mass+s)/_r)
 		pms += _index.get(iv,[])

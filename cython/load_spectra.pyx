@@ -45,18 +45,15 @@ def load_spectra(_in,_param):
 # JSMS parser
 #
 
-cdef list load_jsms(str _in,dict _param):
-	cdef list sp = []
+def load_jsms(_in,_param):
+	sp = []
 	if _in.find('.gz') == len(_in) - 3:
 		f = gzip.open(_in,'rt',encoding = 'utf8')
 	else:
 		f = open(_in,'r',encoding = 'utf8')
-	cdef double proton = 1.007276
-	cdef double res = float(_param['fragment mass tolerance'])
-	cdef dict js = {}
-	cdef list ms = []
-	cdef list vs = []
-	cdef double m = 0
+	proton = 1.007276
+	res = float(_param['fragment mass tolerance'])
+	m = 0.0
 	for l in f:
 		js = ujson.loads(l)
 		if 'lv' in js and 'pz' in js and js['pm']*js['pz'] > 600:
@@ -64,7 +61,7 @@ cdef list load_jsms(str _in,dict _param):
 			ms = js['ms']
 			vs = []
 			for m in ms:
-				vs.append(int(0.5 + 1000.0*(m-proton)))
+				vs.append(int(0.5 + 1000.0*(float(m)-proton)))
 			js['ms'] = vs
 			js = clean_one(js,50,res)
 			sp.append(js)
@@ -76,27 +73,27 @@ cdef list load_jsms(str _in,dict _param):
 #
 # MGF parser
 #
-cdef list load_mgf(str _in,dict _param):
+def load_mgf(_in,_param):
 	if _in.find('.gz') == len(_in) - 3:
 		ifile = gzip.open(_in,'rt')
 	else:
 		ifile = open(_in,'r')
-	cdef long s = 1
-	cdef dict js = {}
-	cdef dict jc = {}
-	cdef list sp = []
-	cdef list Ms = []
-	cdef list Is = []
-	cdef long MsPos = 0
-	cdef long amIn = 0
-	cdef double proton = 1.007276
-	cdef set found = set([])
+	s = 1
+	js = {}
+	jc = {}
+	sp = []
+	Ms = []
+	Is = []
+	MsPos = 0
+	amIn = 0
+	proton = 1.007276
+	found = set([])
 	print('.',end='')
 	sys.stdout.flush()
-	cdef set digit = set(['1','2','3','4','5','6','7','8','9'])
-	cdef double res = float(_param['fragment mass tolerance'])
-	cdef double m = 0.0
-	cdef double i = 0.0
+	digit = set(['1','2','3','4','5','6','7','8','9'])
+	res = float(_param['fragment mass tolerance'])
+	m = 0.0
+	i = 0.0
 	for line in ifile:
 		fl = line[:1]
 		if amIn and fl in digit:
@@ -109,7 +106,7 @@ cdef list load_mgf(str _in,dict _param):
 			if m <= 0:
 				continue
 			i = float(vs[1])
-			if i <= 0:
+			if i <= 0.0:
 				continue
 			if MsPos % 1000 == 0:
 				ts = [0 for x in range(1000)]
@@ -416,22 +413,22 @@ def load_mzml(_in,_param):
 	sp = parser.getContentHandler().getSpectra()
 	return sp
 
-cdef dict clean_one(dict _sp,long _l,double _ires):
-	cdef dict s = _sp.copy()
-	cdef long a = 0
-	cdef double i_max = 0.0
-	cdef long pm = s['pm']
-	cdef long pz = s['pz']
-	cdef long m = 0
+def clean_one(_sp,_l,_ires):
+	s = _sp.copy()
+	a = 0
+	i_max = 0.0
+	pm = s['pm']
+	pz = s['pz']
+	m = 0
 	for a,i in enumerate(s['is']):
 		m = s['ms'][a]
 		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
 			continue
 		if i > i_max:
-			i_max = i
-	cdef list sMs = []
-	cdef list sIs = []
-	i_max /= 100.0
+			i_max = float(i)
+	sMs = []
+	sIs = []
+	i_max =float(i_max)/100.0
 	for a,m in enumerate(s['ms']):
 		if m < 150000 or abs(pm-m) < 45000 or abs(pm/pz- m) < 2000 :
 			continue
@@ -463,9 +460,9 @@ cdef dict clean_one(dict _sp,long _l,double _ires):
 #	sp[a]['is'] = sIs
 	s.pop('ms')
 	s.pop('is')
-	cdef list tps = []
-	cdef list ips = []
-	cdef long val = 0
+	tps = []
+	ips = []
+	val = 0
 #
 #		generate a normalized set of spectrum masses
 #
