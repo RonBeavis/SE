@@ -80,7 +80,7 @@ def load_params(_argv):
 		if v.find('-') == 0:
 			if i + 1 < len(_argv):
 				u = _argv[i+1]
-			elif v.find('-h') == 0:
+			elif v.find('-h') == 0 or v.find('-w') == 0:
 				pass
 			elif v.find('--help') == 0:
 				pass
@@ -112,6 +112,8 @@ def load_params(_argv):
 			additional_spectra = u
 		if v.find('-o') == 0:
 			params['output file'] = u
+		if v.find('-w') == 0:
+			params['wide search'] = int(u)
 		if v.find('-d') == 0:
 			params['parameter file'] = u
 		if v.find('-p') == 0:
@@ -193,14 +195,14 @@ def load_params(_argv):
 				ret = True
 				help = True
 			if ret == False:
-				return (params,False)
+				return (params,False,version)
 			break
 	if len(_argv) == 1:
 		help = True
 		ret = False
 	if help:
 		print('''
-	>python3 se.py -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR) (-l TYPE)
+	>python3 σε.π -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR) (-l TYPE)
 	   where:
 		   -c: use C13 isotope-error testing (yes/no)
 		   -d: default parameter file (JSON)
@@ -223,6 +225,7 @@ def load_params(_argv):
 		         types: isos = isotopes, 
 		                aas = aa residues,
 		                mods = PTMs and chemical modifications
+		   -w: wide search (Daltons)
 		   --help: the same as -h
 		   --version: print software version number only
 ''')

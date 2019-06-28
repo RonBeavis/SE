@@ -110,6 +110,9 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 	if 'c13' in _param:
 		use_c13 = _param.get('c13')
 	acetyl = 42011
+	wide_search = 0
+	if 'wide search' in _param:
+		wide_search = _param['wide search']
 	p_mods = {}
 	v_mods = {}
 	if 'mods p' in _param:
@@ -262,6 +265,8 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 		testAcetyl = False
 		testWater = False
 		jvs = set()
+		search_array = [-1000*i for i in range(1,wide_search)]
+		search_array += [1000*i for i in range(1,wide_search)]
 		for lp in range(lp_len):
 			bIaa = False
 			if 'C' in p_mods:
@@ -276,11 +281,13 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 				p_pos = lp_pos[lp]
 				p_total = lp_total[lp]+vs_total
 				tmass = pm+p_total
-				if r_value == 2:
+				if r_value == 2 and wide_search == 0:
 					if use_c13 and tmass > 1500000:
 						pms = get_spectra(s_index,tmass,ires,[c13])
 					else:
 						pms = get_spectra(s_index,tmass,ires,[])
+				elif r_value == 2 and wide_search > 0:
+					pms = get_spectra(s_index,tmass,ires,search_array)
 				else:
 					pms = []
 				appended = False
@@ -294,7 +301,7 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 						ppm = float(delta-c13)/tmass
 					else:
 						ppm = float(delta)/tmass
-					if min_ppm < ppm < max_ppm:
+					if wide_search > 0 or min_ppm < ppm < max_ppm:
 						if jv is None:
 							(jv,jm) = load_json(js_master,p_pos,p_mods,b_mods,y_mods,lp,vs_pos,v_mods,fres)
 #
@@ -341,10 +348,13 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 					p_total_a = lp_total_a[lp]+vs_total
 					p_pos_a = lp_pos_a[lp]
 					tmass = pm+p_total_a+acetyl
-					if use_c13 and tmass > 1500000:
-						pms = get_spectra(s_index,tmass,ires,[c13])
+					if wide_search == 0:
+						if use_c13 and tmass > 1500000:
+							pms = get_spectra(s_index,tmass,ires,[c13])
+						else:
+							pms = get_spectra(s_index,tmass,ires,[])
 					else:
-						pms = get_spectra(s_index,tmass,ires,[])
+						pms = get_spectra(s_index,tmass,ires,search_array)
 					jv = None
 					jc = None
 					for s in pms:
@@ -353,7 +363,7 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 							ppm = float(delta-c13)/tmass
 						else:
 							ppm = float(delta)/tmass
-						if min_ppm < ppm < max_ppm:
+						if wide_search > 0 or min_ppm < ppm < max_ppm:
 							if acetyl not in b_mods:
 								b_mods.append(acetyl)
 							if jv is None:
@@ -407,10 +417,13 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 					p_total_a = lp_total_a[lp]+vs_total
 					p_pos_a = lp_pos_a[lp]
 					tmass = pm+p_total_a-dvalue
-					if use_c13 and tmass > 1500000:
-						pms = get_spectra(s_index,tmass,ires,[c13])
+					if wide_search == 0:
+						if use_c13 and tmass > 1500000:
+							pms = get_spectra(s_index,tmass,ires,[c13])
+						else:
+							pms = get_spectra(s_index,tmass,ires,[])
 					else:
-						pms = get_spectra(s_index,tmass,ires,[])
+						pms = get_spectra(s_index,tmass,ires,search_array)
 					jv = None
 					jc = None
 					for s in pms:
@@ -419,7 +432,7 @@ def load_kernel_main(_f,_s,_param,_freq,_labels,_r,_qs,_qm,_sl,_rd):
 							ppm = float(delta-c13)/tmass
 						else:
 							ppm = float(delta)/tmass
-						if min_ppm < ppm < max_ppm:
+						if wide_search > 0 or min_ppm < ppm < max_ppm:
 							if dvalue not in b_mods:
 								b_mods.append(-1*dvalue)
 							if jv is None:
