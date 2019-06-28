@@ -198,10 +198,10 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 	pscore_min = 200.0
 	print('     applying statistics')
 	score_tuples = generate_scores(_ids,_scores,_spectra,_kernel,_params)
-	wide_search = 0
+	wide_search = None
 	if 'wide search' in _params:
 		wide_search = _params['wide search']
-	if wide_search == 0:
+	if wide_search == None:
 		(low,high,bins) = find_limits(int(_params['parent mass tolerance']),_ids,_spectra,_kernel,score_tuples,pscore_min)
 	else:	
 		low = -1 * int(_params['parent mass tolerance'])
@@ -301,7 +301,7 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 						break
 					delta = _spectra[j]['pm']-kern['pm']
 					ppm = 1e6*delta/kern['pm']
-					if wide_search == 0:
+					if wide_search is None:
 						if delta/1000.0 > 0.9:
 							ppm = 1.0e6*(delta-1003.0)/kern['pm']
 						if ppm < low or ppm > high:
@@ -459,7 +459,7 @@ def tsv_file(_ids,_stuples,_spectra,_kernel,_job_stats,_params):
 	ss = [re.sub('^(.+?)\: +',r'\1	',l.lstrip()) for l in summary.split('\n')]
 	f.write('\n'.join(ss))
 	f.close()
-	if wide_search > 0:
+	if wide_search is not None:
 		dump_wide(_params,error_histogram)
 	return
 

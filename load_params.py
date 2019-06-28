@@ -113,7 +113,15 @@ def load_params(_argv):
 		if v.find('-o') == 0:
 			params['output file'] = u
 		if v.find('-w') == 0:
-			params['wide search'] = int(u)
+			try:
+				us = u.split(',')
+				ll = abs(int(us[0]))
+				ul = abs(int(us[1]))
+				params['wide search'] = [ll,ul]
+			except:
+				print('Error: wide search specification (-w) "%s" invalid' % (u))
+				ret = False
+				break
 		if v.find('-d') == 0:
 			params['parameter file'] = u
 		if v.find('-p') == 0:
@@ -202,7 +210,7 @@ def load_params(_argv):
 		ret = False
 	if help:
 		print('''
-	>python3 σε.π -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR) (-l TYPE)
+	>python3 σε.π -k KERNEL -s SPECTRA (-d FILE) (-p 20) (-f 400) (-F 1) (-o FILE)  (-h) (-c V) (-p FIXED) (-v VAR) (-l TYPE) (-w LOW,HIGH)
 	   where:
 		   -c: use C13 isotope-error testing (yes/no)
 		   -d: default parameter file (JSON)
@@ -225,7 +233,10 @@ def load_params(_argv):
 		         types: isos = isotopes, 
 		                aas = aa residues,
 		                mods = PTMs and chemical modifications
-		   -w: wide search (Daltons)
+		   -w: wide search window LOW,HIGH limits (Daltons)
+		         e.g.: -5,5 means a window starting at -5 Da and ending at +5 Da
+		               the 1st number will always be interpretted as negative
+		               the 2nd number will always be interpretted as positive
 		   --help: the same as -h
 		   --version: print software version number only
 ''')
